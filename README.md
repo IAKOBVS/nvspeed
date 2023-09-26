@@ -16,3 +16,9 @@ Make sure that NVML\_HEADER in config.h and NVML\_LIB in ./build point to the co
 ```
 ./build
 ```
+
+## Usage:
+
+```
+sudo ./nvspeed
+```
