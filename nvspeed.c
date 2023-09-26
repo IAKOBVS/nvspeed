@@ -1,5 +1,7 @@
 #include "config.h"
 
+/* See /path/to/nvml/example/example.c for more examples. */
+
 #include NVML_HEADER
 #include <stdio.h>
 #include <stdlib.h>
