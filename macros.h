@@ -17,4 +17,10 @@
 #	define unlikely(x) (x)
 #endif
 
+#ifdef __USE_POSIX199309
+#	define HAVE_NANOSLEEP 1
+#else
+#	define HAVE_NANOSLEEP 0
+#endif
+
 #endif /* NVSPEED_MACROS_H */

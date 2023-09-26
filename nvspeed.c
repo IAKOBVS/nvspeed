@@ -13,12 +13,6 @@
 
 #include "macros.h"
 
-#ifdef __USE_POSIX199309
-#	define HAVE_NANOSLEEP 1
-#else
-#	define HAVE_NANOSLEEP 0
-#endif
-
 INLINE
 static time_t
 set_interval(time_t delay)
