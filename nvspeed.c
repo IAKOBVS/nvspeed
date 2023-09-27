@@ -93,7 +93,7 @@ shutdown_free_tmp:
 shutdown_free_dev:
 	free(dev);
 shutdown:
-	puts(nvmlErrorString(ret));
+	fputs(nvmlErrorString(ret), stderr);
 	nvmlShutdown();
 exit:
 	perror("");
