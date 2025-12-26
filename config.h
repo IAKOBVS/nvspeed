@@ -3,7 +3,7 @@
 
 #define NVML_HEADER   "/opt/cuda/targets/x86_64-linux/include/nvml.h"
 #define MIN_TEMP      36
-#define DELAY_MS      200
+#define DELAY_MS      1000
 #define MIN_TEMP_DIFF 2
 
 #define TEMP_SPEED(TEMP, SPEED, VAR) \

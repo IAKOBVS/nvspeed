@@ -6,20 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#ifndef __USE_POSIX199309
-#	include <unistd.h>
-#endif
+#include <unistd.h>
 
 #include "macros.h"
-
-INLINE
-static time_t
-set_interval(time_t delay)
-{
-	enum { NANO_TO_MILI_MULTIPLIER = 1000000 };
-	return delay * NANO_TO_MILI_MULTIPLIER;
-}
 
 INLINE
 static int
@@ -42,15 +31,12 @@ loop(void)
 	int *const temp = malloc(num_dev * sizeof(int));
 	if (temp == NULL)
 		goto shutdown_free_tmp;
-	for (int i = 0; i < num_dev; ++i)
+	for (unsigned int i = 0; i < num_dev; ++i)
 		if ((ret = nvmlDeviceGetHandleByIndex(i, dev + i)) != NVML_SUCCESS)
 			goto cleanup;
 	unsigned int speed;
-#if HAVE_NANOSLEEP
-	const struct timespec itv = { 0, set_interval(DELAY_MS) };
-#endif
 	for (;;) {
-		for (int i = 0; i < num_dev; ++i) {
+		for (unsigned int i = 0; i < num_dev; ++i) {
 			ret = nvmlDeviceGetTemperature(dev[i], NVML_TEMPERATURE_GPU, (unsigned int *)temp + i);
 			if (unlikely(ret != NVML_SUCCESS))
 				goto cleanup;
@@ -64,13 +50,8 @@ loop(void)
 				tmp[i] = temp[i];
 			}
 		}
-#if HAVE_NANOSLEEP
-		if (unlikely(nanosleep(&itv, NULL)))
-			goto cleanup;
-#else
 		if (unlikely(sleep(1)))
 			goto cleanup;
-#endif
 	}
 	free(dev);
 	free(tmp);
@@ -96,5 +77,5 @@ exit:
 int
 main(void)
 {
-	return loop();
+	loop();
 }
