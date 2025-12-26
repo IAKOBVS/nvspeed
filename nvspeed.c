@@ -51,14 +51,7 @@ loop(void)
 #endif
 	for (;;) {
 		for (int i = 0; i < num_dev; ++i) {
-#ifdef __GNUC__
-#	pragma GCC diagnostic ignored "-Wanalyzer-use-of-uninitialized-value" /* NOLINT */
-#	pragma GCC diagnostic push
-#endif
 			ret = nvmlDeviceGetTemperature(dev[i], NVML_TEMPERATURE_GPU, (unsigned int *)temp + i);
-#ifdef __GNUC__
-#	pragma GCC diagnostic pop
-#endif
 			if (unlikely(ret != NVML_SUCCESS))
 				goto cleanup;
 			if (abs(tmp[i] - temp[i]) > MIN_TEMP_DIFF) {
@@ -85,7 +78,7 @@ loop(void)
 	ret = nvmlShutdown();
 	if (ret != NVML_SUCCESS)
 		goto exit;
-	return 0;
+	return EXIT_SUCCESS;
 cleanup:
 	free(temp);
 shutdown_free_tmp:
@@ -97,7 +90,7 @@ shutdown:
 	nvmlShutdown();
 exit:
 	perror("");
-	return 1;
+	return EXIT_FAILURE;
 }
 
 int
