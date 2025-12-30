@@ -1,6 +1,6 @@
 #!/bin/sh
 NVML_LIB=/opt/cuda/lib64/
 LDFLAGS=-"lnvidia-ml -L $NVML_LIB"
-CFLAGS='-O2'
+CFLAGS='-O2 -march=native'
 # shellcheck disable=SC2086
 cc ./nvspeed.c -o ./nvspeed $CFLAGS $LDFLAGS
