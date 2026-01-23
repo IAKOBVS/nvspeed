@@ -4,6 +4,7 @@ CFLAGS += -L$(NVMLLIB) $(NVMLLDFLAGS)
 
 CFLAGS += -O2 -march=native -fsanitize=address -Wall -Wextra -Wno-deprecated-declarations
 PROG = nvspeed
+PREFIX = /usr/local
 
 all: $(PROG)
 
