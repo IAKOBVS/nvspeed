@@ -1,5 +1,5 @@
 # nvspeed
-
+Control Nvidia GPU fan speed in C
 # Building
 ```
 make
