@@ -1,11 +1,12 @@
 # nvspeed
-Control Nvidia GPU fan speed in C
+Minimal Nvidia GPU fan speed controller written in C.
 # Building
 ```
 make
 ```
 # Usage
 ```
+# requires sudo to set fan speed
 sudo nvspeed
 ```
 ## Configuration
