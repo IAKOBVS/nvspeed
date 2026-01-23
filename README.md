@@ -6,7 +6,7 @@ make
 ```
 # Usage
 ```
-sudo ./nvspeed
+sudo nvspeed
 ```
 ## Configuration
 Temperature, fan speed, delay, and minimum temperature difference are configured in config.h.
