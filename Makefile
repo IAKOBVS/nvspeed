@@ -7,7 +7,7 @@ PROG = nvspeed
 
 all: $(PROG)
 
-nvspeed:
+nvspeed: config.h
 	$(CC) -o $@ $(PROG).c $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
 
 config.h:
