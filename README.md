@@ -13,6 +13,8 @@ $ cd ../../..
 $ makepkg -si
 ```
 # Building
+## Dependencies
+NVML (CUDA): for getting GPU temperature and setting fan speed
 ```
 # Install dependencies
 $ your-package-manager-install cuda
@@ -28,5 +30,3 @@ $ sudo nvspeed
 ```
 ## Configuration
 Temperature, fan speed, delay, and minimum temperature difference are configured in config.h.
-## Dependencies
-NVML (CUDA): for getting GPU temperature and setting fan speed
