@@ -14,6 +14,8 @@ nvspeed: config.h
 config.h:
 	cp config.def.h $@
 
+config: config.h
+
 clean:
 	rm -f $(PROG)
 
