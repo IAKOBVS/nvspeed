@@ -1,5 +1,5 @@
 # nvspeed
-Minimal Nvidia GPU fan speed controller written in C.
+A minimal Nvidia GPU fan speed controller written in C.
 # Building
 ```
 make
