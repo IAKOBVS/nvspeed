@@ -15,7 +15,7 @@ $ makepkg -si
 # Building
 ```
 # Install dependencies
-# your-package-manager-install cuda
+$ your-package-manager-install cuda
 $ make config
 # Configure config.h, and the Makefile
 $ make
