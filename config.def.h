@@ -1,11 +1,16 @@
 #ifndef CONFIG_H
 #	define CONFIG_H 1
 
-#	define NVML_HEADER   "/opt/cuda/include/nvml.h"
-#	define MIN_TEMP      36
-#	define MIN_SPEED     33 /* Seems to be the minimum. */
-#	define INTERVAL      1
-#	define MIN_TEMP_DIFF 2
+#	define NVML_HEADER "/opt/cuda/include/nvml.h"
+/* May not work for older versions of CUDA, in which case, comment it out. */
+#	define USE_NVML_DEVICEGETTEMPERATUREV 1
+/* Seems to be the minimum from nvmlDeviceGetMinMaxFanSpeed. */
+#	define MIN_SPEED 33
+#	define INTERVAL  1
+/* Minimum temperature difference before updating. */
+#	define MIN_TEMP_DIFF 1
+/* Minimum fan speed difference before updating. */
+#	define MIN_SPEED_DIFF 1
 
 #	define TEMP_SPEED(TEMP, SPEED, NEW_SPEED) \
 	case TEMP: NEW_SPEED = SPEED; break;
@@ -83,6 +88,26 @@
 		TEMP_SPEED(99, 100, NEW_SPEED);  \
 		TEMP_SPEED(100, 100, NEW_SPEED); \
 		TEMP_SPEED(101, 100, NEW_SPEED); \
+		TEMP_SPEED(102, 100, NEW_SPEED); \
+		TEMP_SPEED(103, 100, NEW_SPEED); \
+		TEMP_SPEED(104, 100, NEW_SPEED); \
+		TEMP_SPEED(105, 100, NEW_SPEED); \
+		TEMP_SPEED(106, 100, NEW_SPEED); \
+		TEMP_SPEED(107, 100, NEW_SPEED); \
+		TEMP_SPEED(108, 100, NEW_SPEED); \
+		TEMP_SPEED(109, 100, NEW_SPEED); \
+		TEMP_SPEED(110, 100, NEW_SPEED); \
+		TEMP_SPEED(111, 100, NEW_SPEED); \
+		TEMP_SPEED(112, 100, NEW_SPEED); \
+		TEMP_SPEED(113, 100, NEW_SPEED); \
+		TEMP_SPEED(114, 100, NEW_SPEED); \
+		TEMP_SPEED(115, 100, NEW_SPEED); \
+		TEMP_SPEED(116, 100, NEW_SPEED); \
+		TEMP_SPEED(117, 100, NEW_SPEED); \
+		TEMP_SPEED(118, 100, NEW_SPEED); \
+		TEMP_SPEED(119, 100, NEW_SPEED); \
+		TEMP_SPEED(120, 100, NEW_SPEED); \
 	default: NEW_SPEED = MIN_SPEED; break;
+/* At 120+ C, the GPU would have already shut itself down. */
 
 #endif /* CONFIG_H */

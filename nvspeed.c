@@ -26,9 +26,9 @@
 #include NVML_HEADER
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <assert.h>
+#include <time.h>
 
 #include "macros.h"
 
@@ -45,14 +45,32 @@
 		assert(0);      \
 	} while (0)
 
+static nvmlReturn_t
+nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
+{
+#if USE_NVML_DEVICEGETTEMPERATUREV
+	nvmlTemperature_t tmp;
+	tmp.sensorType = sensorType;
+	tmp.version = nvmlTemperature_v1;
+	const nvmlReturn_t ret = nvmlDeviceGetTemperatureV(device, &tmp);
+	*temp = (unsigned int)tmp.temperature;
+	return ret;
+#else
+	return nvmlDeviceGetTemperature(device, sensorType, temp);
+#endif
+}
+
 /* Global variables */
-nvmlDevice_t *nv_device;
-int *nv_temp_last;
-int *nv_temp;
-unsigned int nv_device_count;
-int nv_inited;
-nvmlReturn_t nv_ret;
-int nv_last_speed;
+static nvmlDevice_t *nv_device;
+static unsigned int nv_device_count;
+static int nv_inited;
+static nvmlReturn_t nv_ret;
+
+typedef struct {
+	int temp;
+	int speed;
+} nv_mon_ty;
+static nv_mon_ty *nv_last;
 
 static void
 nv_cleanup()
@@ -61,47 +79,62 @@ nv_cleanup()
 		nvmlShutdown();
 	}
 	free(nv_device);
-	free(nv_temp_last);
-	free(nv_temp);
-	nv_device = NULL;
-	nv_temp_last = NULL;
-	nv_temp = NULL;
+	free(nv_last);
 }
 
 static void
-nv_die(nvmlReturn_t nv_ret)
+nv_die(nvmlReturn_t ret)
 {
 	perror("\n");
-	fprintf(stderr, "%s\n\n", nvmlErrorString(nv_ret));
+	fprintf(stderr, "%s\n\n", nvmlErrorString(ret));
 	nv_cleanup();
 }
 
 static int
 nv_init()
 {
-	nvmlReturn_t nv_ret = nvmlInit();
+	nv_ret = nvmlInit();
 	if (nv_ret != NVML_SUCCESS)
 		ERR(nv_ret);
 	nv_inited = 1;
 	nv_ret = nvmlDeviceGetCount(&nv_device_count);
 	if (nv_ret != NVML_SUCCESS)
 		ERR(nv_ret);
-	nv_device = malloc(nv_device_count * sizeof(nvmlDevice_t));
+	nv_device = (nvmlDevice_t *)malloc(nv_device_count * sizeof(nvmlDevice_t));
 	if (nv_device == NULL)
 		ERR(nv_ret);
-	nv_temp_last = calloc(nv_device_count, sizeof(int));
-	if (nv_temp_last == NULL)
-		ERR(nv_ret);
-	memset(nv_temp_last, MIN_TEMP, nv_device_count * sizeof(int));
-	nv_temp = malloc(nv_device_count * sizeof(int));
-	if (nv_temp == NULL)
+	nv_last = (nv_mon_ty *)calloc(nv_device_count, sizeof(nv_mon_ty));
+	if (nv_last == NULL)
 		ERR(nv_ret);
 	for (unsigned int i = 0; i < nv_device_count; ++i) {
 		nv_ret = nvmlDeviceGetHandleByIndex(i, nv_device + i);
 		if (nv_ret != NVML_SUCCESS)
 			ERR(nv_ret);
+		unsigned int min;
+		unsigned int max;
+		nvmlDeviceGetMinMaxFanSpeed(nv_device[i], &min, &max);
+		if (nv_ret != NVML_SUCCESS)
+			ERR(nv_ret);
+		D_PRINTF("nvspeed: min_speed: %d\n", min);
+		D_PRINTF("nvspeed: max_speed: %d\n", max);
 	}
 	return 0;
+}
+
+static ATTR_INLINE int
+nv_get_speed_from_temp(unsigned int temp)
+{
+	int speed;
+	switch (temp) {
+		CASE_TEMP_SPEED(speed);
+	}
+	return speed;
+}
+
+static ATTR_INLINE int
+nv_update_need(int speed, int last, int min_diff)
+{
+	return abs(last - speed) >= min_diff;
 }
 
 static int
@@ -109,35 +142,40 @@ nv_mainloop(void)
 {
 	if (!nv_inited)
 		nv_init();
-	int speed;
+	int speed = 0;
+	unsigned int temp;
 	for (;;) {
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
-			nv_ret = nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, (unsigned int *)nv_temp + i);
+			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				ERR(nv_ret);
-			D_PRINTF("temp:%d\n", nv_temp[i]);
-			if (abs(nv_temp_last[i] - nv_temp[i]) > MIN_TEMP_DIFF) {
-				switch (nv_temp[i]) {
-					CASE_TEMP_SPEED(speed);
-				}
-				D_PRINTF("speed:%d\n", speed);
-				if (abs(speed - nv_last_speed) > MIN_SPEED_DIFF) {
-					nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], i, (unsigned int)speed);
-					if (unlikely(nv_ret != NVML_SUCCESS))
-						ERR(nv_ret);
-				}
-				nv_temp_last[i] = nv_temp[i];
-			}
+			D_PRINTF("nvspeed: current temp:%d.\n\n", temp);
+			D_PRINTF("nvspeed: last temp:%d.\n\n", nv_last[i].temp);
+			/* Avoid updating if temperature has not changed. */
+			if (!nv_update_need((int)temp, nv_last[i].temp, MIN_TEMP_DIFF))
+				continue;
+			speed = nv_get_speed_from_temp((unsigned int)temp);
+			/* Avoid updating if speed has not changed. */
+			if (!nv_update_need(speed, nv_last[i].speed, MIN_SPEED_DIFF))
+				continue;
+			nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], i, (unsigned int)speed);
+			if (unlikely(nv_ret != NVML_SUCCESS))
+				ERR(nv_ret);
+			D_PRINTF("nvspeed: setting speed:%d.\n", speed);
+			D_PRINTF("nvspeed: last speed:%d.\n", nv_last[i].speed);
+			nv_last[i].speed = speed;
+			nv_last[i].temp = (int)temp;
 		}
 		if (unlikely(sleep(INTERVAL)))
 			ERR(nv_ret);
 	}
-	nv_cleanup();
+	/* No need to cleanup, as it will exit. */
+	/* nv_cleanup(); */
 	return EXIT_SUCCESS;
 }
 
 int
 main(void)
 {
-	nv_mainloop();
+	return nv_mainloop();
 }
