@@ -14,7 +14,7 @@ $ makepkg -si
 ```
 # Building
 ## Dependencies
-NVML (CUDA): for getting GPU temperature and setting fan speed
+CUDA: for getting GPU temperature and setting fan speed with NVML
 ```
 # Install dependencies
 $ your-package-manager-install cuda
@@ -24,8 +24,8 @@ $ make
 $ sudo make install
 ```
 # Usage
+Sudo is required to set fan speed for NVML.
 ```
-# requires sudo to set fan speed
 $ sudo nvspeed
 ```
 ## Configuration
