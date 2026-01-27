@@ -7,107 +7,128 @@
 /* Seems to be the minimum from nvmlDeviceGetMinMaxFanSpeed. */
 #	define MIN_SPEED 33
 #	define INTERVAL  1
-/* Minimum temperature difference before updating. */
-#	define MIN_TEMP_DIFF 1
-/* Minimum fan speed difference before updating. */
-#	define MIN_SPEED_DIFF 1
 
-#	define TEMP_SPEED(TEMP, SPEED, NEW_SPEED) \
-	case TEMP: NEW_SPEED = SPEED; break;
-#	define CASE_TEMP_SPEED(NEW_SPEED)       \
-		TEMP_SPEED(29, 33, NEW_SPEED);   \
-		TEMP_SPEED(30, 33, NEW_SPEED);   \
-		TEMP_SPEED(31, 33, NEW_SPEED);   \
-		TEMP_SPEED(32, 33, NEW_SPEED);   \
-		TEMP_SPEED(33, 33, NEW_SPEED);   \
-		TEMP_SPEED(34, 33, NEW_SPEED);   \
-		TEMP_SPEED(35, 33, NEW_SPEED);   \
-		TEMP_SPEED(36, 33, NEW_SPEED);   \
-		TEMP_SPEED(37, 33, NEW_SPEED);   \
-		TEMP_SPEED(38, 33, NEW_SPEED);   \
-		TEMP_SPEED(39, 33, NEW_SPEED);   \
-		TEMP_SPEED(40, 33, NEW_SPEED);   \
-		TEMP_SPEED(41, 33, NEW_SPEED);   \
-		TEMP_SPEED(42, 33, NEW_SPEED);   \
-		TEMP_SPEED(43, 34, NEW_SPEED);   \
-		TEMP_SPEED(44, 35, NEW_SPEED);   \
-		TEMP_SPEED(45, 36, NEW_SPEED);   \
-		TEMP_SPEED(46, 37, NEW_SPEED);   \
-		TEMP_SPEED(47, 38, NEW_SPEED);   \
-		TEMP_SPEED(48, 39, NEW_SPEED);   \
-		TEMP_SPEED(49, 40, NEW_SPEED);   \
-		TEMP_SPEED(50, 42, NEW_SPEED);   \
-		TEMP_SPEED(51, 44, NEW_SPEED);   \
-		TEMP_SPEED(52, 46, NEW_SPEED);   \
-		TEMP_SPEED(53, 48, NEW_SPEED);   \
-		TEMP_SPEED(54, 50, NEW_SPEED);   \
-		TEMP_SPEED(55, 54, NEW_SPEED);   \
-		TEMP_SPEED(56, 56, NEW_SPEED);   \
-		TEMP_SPEED(57, 57, NEW_SPEED);   \
-		TEMP_SPEED(58, 58, NEW_SPEED);   \
-		TEMP_SPEED(59, 60, NEW_SPEED);   \
-		TEMP_SPEED(60, 62, NEW_SPEED);   \
-		TEMP_SPEED(61, 64, NEW_SPEED);   \
-		TEMP_SPEED(62, 66, NEW_SPEED);   \
-		TEMP_SPEED(63, 68, NEW_SPEED);   \
-		TEMP_SPEED(64, 70, NEW_SPEED);   \
-		TEMP_SPEED(65, 72, NEW_SPEED);   \
-		TEMP_SPEED(66, 74, NEW_SPEED);   \
-		TEMP_SPEED(67, 76, NEW_SPEED);   \
-		TEMP_SPEED(68, 78, NEW_SPEED);   \
-		TEMP_SPEED(69, 80, NEW_SPEED);   \
-		TEMP_SPEED(70, 82, NEW_SPEED);   \
-		TEMP_SPEED(71, 84, NEW_SPEED);   \
-		TEMP_SPEED(72, 86, NEW_SPEED);   \
-		TEMP_SPEED(73, 87, NEW_SPEED);   \
-		TEMP_SPEED(74, 88, NEW_SPEED);   \
-		TEMP_SPEED(75, 89, NEW_SPEED);   \
-		TEMP_SPEED(76, 90, NEW_SPEED);   \
-		TEMP_SPEED(77, 91, NEW_SPEED);   \
-		TEMP_SPEED(78, 92, NEW_SPEED);   \
-		TEMP_SPEED(79, 93, NEW_SPEED);   \
-		TEMP_SPEED(80, 94, NEW_SPEED);   \
-		TEMP_SPEED(81, 96, NEW_SPEED);   \
-		TEMP_SPEED(82, 98, NEW_SPEED);   \
-		TEMP_SPEED(83, 100, NEW_SPEED);  \
-		TEMP_SPEED(84, 100, NEW_SPEED);  \
-		TEMP_SPEED(85, 100, NEW_SPEED);  \
-		TEMP_SPEED(86, 100, NEW_SPEED);  \
-		TEMP_SPEED(87, 100, NEW_SPEED);  \
-		TEMP_SPEED(88, 100, NEW_SPEED);  \
-		TEMP_SPEED(89, 100, NEW_SPEED);  \
-		TEMP_SPEED(90, 100, NEW_SPEED);  \
-		TEMP_SPEED(91, 100, NEW_SPEED);  \
-		TEMP_SPEED(92, 100, NEW_SPEED);  \
-		TEMP_SPEED(93, 100, NEW_SPEED);  \
-		TEMP_SPEED(94, 100, NEW_SPEED);  \
-		TEMP_SPEED(95, 100, NEW_SPEED);  \
-		TEMP_SPEED(96, 100, NEW_SPEED);  \
-		TEMP_SPEED(97, 100, NEW_SPEED);  \
-		TEMP_SPEED(98, 100, NEW_SPEED);  \
-		TEMP_SPEED(99, 100, NEW_SPEED);  \
-		TEMP_SPEED(100, 100, NEW_SPEED); \
-		TEMP_SPEED(101, 100, NEW_SPEED); \
-		TEMP_SPEED(102, 100, NEW_SPEED); \
-		TEMP_SPEED(103, 100, NEW_SPEED); \
-		TEMP_SPEED(104, 100, NEW_SPEED); \
-		TEMP_SPEED(105, 100, NEW_SPEED); \
-		TEMP_SPEED(106, 100, NEW_SPEED); \
-		TEMP_SPEED(107, 100, NEW_SPEED); \
-		TEMP_SPEED(108, 100, NEW_SPEED); \
-		TEMP_SPEED(109, 100, NEW_SPEED); \
-		TEMP_SPEED(110, 100, NEW_SPEED); \
-		TEMP_SPEED(111, 100, NEW_SPEED); \
-		TEMP_SPEED(112, 100, NEW_SPEED); \
-		TEMP_SPEED(113, 100, NEW_SPEED); \
-		TEMP_SPEED(114, 100, NEW_SPEED); \
-		TEMP_SPEED(115, 100, NEW_SPEED); \
-		TEMP_SPEED(116, 100, NEW_SPEED); \
-		TEMP_SPEED(117, 100, NEW_SPEED); \
-		TEMP_SPEED(118, 100, NEW_SPEED); \
-		TEMP_SPEED(119, 100, NEW_SPEED); \
-		TEMP_SPEED(120, 100, NEW_SPEED); \
-	default: NEW_SPEED = MIN_SPEED; break;
-/* At 120+ C, the GPU would have already shut itself down. */
+static const unsigned char table_percent[] = {
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		33,
+		34,
+		35,
+		36,
+		37,
+		38,
+		39,
+		40,
+		42,
+		44,
+		46,
+		48,
+		50,
+		54,
+		56,
+		57,
+		58,
+		60,
+		62,
+		64,
+		66,
+		68,
+		70,
+		72,
+		74,
+		76,
+		78,
+		80,
+		82,
+		84,
+		86,
+		87,
+		88,
+		89,
+		90,
+		91,
+		92,
+		93,
+		94,
+		96,
+		98,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100,
+		100
+};
 
 #endif /* CONFIG_H */

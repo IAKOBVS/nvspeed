@@ -29,4 +29,4 @@ $ sudo make install
 $ sudo nvspeed
 ```
 ## Configuration
-Temperature, fan speed, delay, and minimum temperature difference are configured in config.h.
+Temperature and fan speed are configured in config.h.

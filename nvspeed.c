@@ -77,9 +77,8 @@ static nv_mon_ty *nv_last;
 static void
 nv_cleanup()
 {
-	if (nv_inited) {
+	if (nv_inited)
 		nvmlShutdown();
-	}
 	free(nv_device);
 	free(nv_last);
 }
@@ -144,7 +143,7 @@ nv_mainloop(void)
 			nv_last[i].temp = temp;
 			speed = table_percent[temp];
 			/* */
-			D(fprintf(stderr, "nvspeed: temp:%d speed;%d.\n\n", temp, table_percent[temp]));
+			D(fprintf(stderr, "nvspeed: temp:%d speed;%d.\n\n", temp, speed));
 			/* Avoid updating if speed has not changed. */
 			if (speed == nv_last[i].speed)
 				continue;
