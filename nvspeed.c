@@ -33,9 +33,11 @@
 #include "macros.h"
 
 #ifdef DEBUG
+#	define D(x) (x)
 #	define D_PRINTF(fmt, x) \
 		printf(fmt, x)
 #else
+#	define D(x)
 #	define D_PRINTF(fmt, x)
 #endif
 
@@ -67,8 +69,8 @@ static int nv_inited;
 static nvmlReturn_t nv_ret;
 
 typedef struct {
-	int temp;
-	int speed;
+	unsigned int temp;
+	unsigned int speed;
 } nv_mon_ty;
 static nv_mon_ty *nv_last;
 
@@ -121,50 +123,38 @@ nv_init()
 	return 0;
 }
 
-static ATTR_INLINE int
-nv_get_speed_from_temp(unsigned int temp)
-{
-	int speed;
-	switch (temp) {
-		CASE_TEMP_SPEED(speed);
-	}
-	return speed;
-}
-
-static ATTR_INLINE int
-nv_update_need(int speed, int last, int min_diff)
-{
-	return abs(last - speed) >= min_diff;
-}
-
 static int
 nv_mainloop(void)
 {
 	if (!nv_inited)
 		nv_init();
-	int speed = 0;
+	unsigned int speed = 0;
 	unsigned int temp;
 	for (;;) {
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				ERR(nv_ret);
-			D_PRINTF("nvspeed: current temp:%d.\n\n", temp);
+			/* */
+			D_PRINTF("nvspeed: temp:%d.\n\n", temp);
 			D_PRINTF("nvspeed: last temp:%d.\n\n", nv_last[i].temp);
 			/* Avoid updating if temperature has not changed. */
-			if (!nv_update_need((int)temp, nv_last[i].temp, MIN_TEMP_DIFF))
+			if (temp == nv_last[i].temp)
 				continue;
-			speed = nv_get_speed_from_temp((unsigned int)temp);
+			nv_last[i].temp = temp;
+			speed = table_percent[temp];
+			/* */
+			D(fprintf(stderr, "nvspeed: temp:%d speed;%d.\n\n", temp, table_percent[temp]));
 			/* Avoid updating if speed has not changed. */
-			if (!nv_update_need(speed, nv_last[i].speed, MIN_SPEED_DIFF))
+			if (speed == nv_last[i].speed)
 				continue;
+			nv_last[i].speed = speed;
 			nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], i, (unsigned int)speed);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				ERR(nv_ret);
+			/* */
 			D_PRINTF("nvspeed: setting speed:%d.\n", speed);
 			D_PRINTF("nvspeed: last speed:%d.\n", nv_last[i].speed);
-			nv_last[i].speed = speed;
-			nv_last[i].temp = (int)temp;
 		}
 		if (unlikely(sleep(INTERVAL)))
 			ERR(nv_ret);

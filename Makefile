@@ -2,7 +2,7 @@ NVMLLIB = /opt/cuda/lib64
 NVMLLDFLAGS += -lnvidia-ml
 CFLAGS += -L$(NVMLLIB) $(NVMLLDFLAGS)
 
-CFLAGS += -O2 -march=native -Wall -Wextra -Wno-deprecated-declarations
+CFLAGS += -O2 -march=native -fanalyzer -Wno-unknown-argument -Wpedantic -pedantic -Wall -Wextra -Wuninitialized -Wshadow -Warray-bounds -Wnull-dereference -Wformat -Wunused -Wwrite-strings
 PROG = nvspeed
 PREFIX = /usr/local
 
