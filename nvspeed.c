@@ -61,11 +61,7 @@ static unsigned int nv_device_count;
 static int nv_inited;
 static nvmlReturn_t nv_ret;
 
-typedef struct {
-	unsigned int temp;
-	unsigned int speed;
-} nv_mon_ty;
-static nv_mon_ty *nv_last;
+static unsigned int *nv_speed_last;
 
 static void
 nv_cleanup()
@@ -79,7 +75,7 @@ nv_cleanup()
 		nvmlShutdown();
 	}
 	free(nv_device);
-	free(nv_last);
+	free(nv_speed_last);
 }
 
 static void
@@ -104,8 +100,8 @@ nv_init()
 	nv_device = (nvmlDevice_t *)calloc(nv_device_count, sizeof(nvmlDevice_t));
 	if (nv_device == NULL)
 		DIE(nv_ret);
-	nv_last = (nv_mon_ty *)calloc(nv_device_count, sizeof(nv_mon_ty));
-	if (nv_last == NULL)
+	nv_speed_last = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
+	if (nv_speed_last == NULL)
 		DIE(nv_ret);
 	nv_num_fans = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
 	if (nv_num_fans == NULL)
@@ -122,7 +118,7 @@ nv_init()
 		DBG(fprintf(stderr, "Min speed for GPU%d: %d\n", i, min));
 		DBG(fprintf(stderr, "Max speed for GPU%d: %d\n", i, max));
 		/* for nv_step to work, first last_speed MUST be >= STEPDOWN_MAX. */
-		nv_last[i].speed = STEPDOWN_MAX;
+		nv_speed_last[i] = STEPDOWN_MAX;
 		nv_ret = nvmlDeviceGetNumFans(nv_device[i], nv_num_fans + i);
 		if (nv_ret != NVML_SUCCESS)
 			DIE(nv_ret);
@@ -151,10 +147,10 @@ nv_mainloop(void)
 			speed = table_percent[temp];
 			DBG(fprintf(stderr, "Getting speed: %d.\n", speed));
 			/* Avoid updating if speed has not changed. */
-			if (speed == nv_last[i].speed)
+			if (speed == nv_speed_last[i])
 				continue;
-			speed = nv_step(speed, nv_last[i].speed);
-			nv_last[i].speed = speed;
+			speed = nv_step(speed, nv_speed_last[i]);
+			nv_speed_last[i] = speed;
 			for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
 				DBG(fprintf(stderr, "Setting speed %d to fan%d of GPU%d.\n", speed, j, i));
 				nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], j, (unsigned int)speed);
