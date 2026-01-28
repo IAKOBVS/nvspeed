@@ -1,0 +1,4 @@
+#!/bin/sh
+make clean
+CPPFLAGS=-DDEBUG=1 make
+sudo ./nvspeed
