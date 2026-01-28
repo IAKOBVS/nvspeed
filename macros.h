@@ -1,6 +1,27 @@
 #ifndef MACROS_H
 #	define MACROS_H 1
 
+#	include <assert.h>
+
+#	ifdef DEBUG
+#		define DBG(x) (x)
+#	else
+#		define DBG(x)
+#	endif
+
+#	ifdef __ASSERT_FUNCTION
+#		define ASSERT_FUNC __ASSERT_FUNCTION
+#	else
+#		define ASSERT_FUNC __func__
+#	endif
+
+#	define DIE(nv_ret)                                                             \
+		do {                                                                    \
+			nv_die(nv_ret);                                                 \
+			fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, ASSERT_FUNC); \
+			exit(EXIT_FAILURE);                                             \
+		} while (0)
+
 #	ifdef __glibc_has_builtin
 #		define HAS_BUILTIN(name) __glibc_has_builtin(name)
 #	elif defined __has_builtin

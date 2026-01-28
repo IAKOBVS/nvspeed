@@ -29,23 +29,14 @@
 #include <unistd.h>
 #include <assert.h>
 #include <time.h>
+#include <errno.h>
 
 #include "macros.h"
 
-#ifdef DEBUG
-#	define D(x) (x)
-#	define D_PRINTF(fmt, x) \
-		printf(fmt, x)
-#else
-#	define D(x)
-#	define D_PRINTF(fmt, x)
-#endif
-
-#define ERR(nv_ret)             \
-	do {                    \
-		nv_die(nv_ret); \
-		assert(0);      \
-	} while (0)
+typedef enum {
+	NV_RET_SUCC = 0,
+	NV_RET_ERR
+} nv_ret_ty;
 
 static nvmlReturn_t
 nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
@@ -64,6 +55,8 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 
 /* Global variables */
 static nvmlDevice_t *nv_device;
+static unsigned int *nv_num_fans;
+static unsigned int nv_device_count;
 static unsigned int nv_device_count;
 static int nv_inited;
 static nvmlReturn_t nv_ret;
@@ -77,8 +70,14 @@ static nv_mon_ty *nv_last;
 static void
 nv_cleanup()
 {
-	if (nv_inited)
+	if (nv_inited) {
+		/* Restore fan control policy. */
+		if (nv_num_fans)
+			for (unsigned int i = 0; i < nv_device_count; ++i)
+				for (unsigned int j = 0; j < nv_num_fans[i]; ++j)
+					nvmlDeviceSetDefaultFanSpeed_v2(nv_device[i], j);
 		nvmlShutdown();
+	}
 	free(nv_device);
 	free(nv_last);
 }
@@ -86,85 +85,95 @@ nv_cleanup()
 static void
 nv_die(nvmlReturn_t ret)
 {
-	perror("\n");
-	fprintf(stderr, "%s\n\n", nvmlErrorString(ret));
+	if (errno)
+		perror("");
+	fprintf(stderr, "nvspeed: %s\n", nvmlErrorString(ret));
 	nv_cleanup();
 }
 
-static int
+static nv_ret_ty
 nv_init()
 {
 	nv_ret = nvmlInit();
 	if (nv_ret != NVML_SUCCESS)
-		ERR(nv_ret);
+		DIE(nv_ret);
 	nv_inited = 1;
 	nv_ret = nvmlDeviceGetCount(&nv_device_count);
 	if (nv_ret != NVML_SUCCESS)
-		ERR(nv_ret);
-	nv_device = (nvmlDevice_t *)malloc(nv_device_count * sizeof(nvmlDevice_t));
+		DIE(nv_ret);
+	nv_device = (nvmlDevice_t *)calloc(nv_device_count, sizeof(nvmlDevice_t));
 	if (nv_device == NULL)
-		ERR(nv_ret);
+		DIE(nv_ret);
 	nv_last = (nv_mon_ty *)calloc(nv_device_count, sizeof(nv_mon_ty));
 	if (nv_last == NULL)
-		ERR(nv_ret);
+		DIE(nv_ret);
+	nv_num_fans = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
+	if (nv_num_fans == NULL)
+		DIE(nv_ret);
 	for (unsigned int i = 0; i < nv_device_count; ++i) {
 		nv_ret = nvmlDeviceGetHandleByIndex(i, nv_device + i);
 		if (nv_ret != NVML_SUCCESS)
-			ERR(nv_ret);
+			DIE(nv_ret);
 		unsigned int min;
 		unsigned int max;
-		nvmlDeviceGetMinMaxFanSpeed(nv_device[i], &min, &max);
+		nv_ret = nvmlDeviceGetMinMaxFanSpeed(nv_device[i], &min, &max);
 		if (nv_ret != NVML_SUCCESS)
-			ERR(nv_ret);
-		D_PRINTF("nvspeed: min_speed: %d\n", min);
-		D_PRINTF("nvspeed: max_speed: %d\n", max);
+			DIE(nv_ret);
+		DBG(fprintf(stderr, "Min speed for GPU%d: %d\n", i, min));
+		DBG(fprintf(stderr, "Max speed for GPU%d: %d\n", i, max));
+		/* for nv_step to work, first last_speed MUST be >= STEPDOWN_MAX. */
+		nv_last[i].speed = STEPDOWN_MAX;
+		nv_ret = nvmlDeviceGetNumFans(nv_device[i], nv_num_fans + i);
+		if (nv_ret != NVML_SUCCESS)
+			DIE(nv_ret);
 	}
-	return 0;
+	return NV_RET_SUCC;
 }
 
-static int
+static ATTR_INLINE unsigned int
+nv_step(unsigned int speed, unsigned int last_speed)
+{
+	/* Ramp down slower, STEPDOWN_MAX per update at maximum. */
+	return (speed > last_speed - STEPDOWN_MAX) ? speed : (last_speed - STEPDOWN_MAX);
+}
+
+static nv_ret_ty
 nv_mainloop(void)
 {
-	if (!nv_inited)
-		nv_init();
-	unsigned int speed = 0;
+	unsigned int speed;
 	unsigned int temp;
 	for (;;) {
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
-				ERR(nv_ret);
-			/* */
-			D_PRINTF("nvspeed: temp:%d.\n\n", temp);
-			D_PRINTF("nvspeed: last temp:%d.\n\n", nv_last[i].temp);
-			/* Avoid updating if temperature has not changed. */
-			if (temp == nv_last[i].temp)
-				continue;
-			nv_last[i].temp = temp;
+				DIE(nv_ret);
+			DBG(fprintf(stderr, "Getting temp: %d.\n", temp));
 			speed = table_percent[temp];
-			/* */
-			D(fprintf(stderr, "nvspeed: temp:%d speed;%d.\n\n", temp, speed));
+			DBG(fprintf(stderr, "Getting speed: %d.\n", speed));
 			/* Avoid updating if speed has not changed. */
 			if (speed == nv_last[i].speed)
 				continue;
+			speed = nv_step(speed, nv_last[i].speed);
 			nv_last[i].speed = speed;
-			nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], i, (unsigned int)speed);
-			if (unlikely(nv_ret != NVML_SUCCESS))
-				ERR(nv_ret);
-			/* */
-			D_PRINTF("nvspeed: setting speed:%d.\n", speed);
-			D_PRINTF("nvspeed: last speed:%d.\n", nv_last[i].speed);
+			for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
+				DBG(fprintf(stderr, "Setting speed %d to fan%d of GPU%d.\n", speed, j, i));
+				nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], j, (unsigned int)speed);
+				if (unlikely(nv_ret != NVML_SUCCESS))
+					DIE(nv_ret);
+			}
 		}
 		if (unlikely(sleep(INTERVAL)))
-			ERR(nv_ret);
+			DIE(nv_ret);
 	}
-	/* No need to cleanup, as it will exit. */
-	/* nv_cleanup(); */
-	return EXIT_SUCCESS;
+	return NV_RET_SUCC;
 }
 
 int
 main(void)
 {
-	return nv_mainloop();
+	if (unlikely(nv_init() != NV_RET_SUCC))
+		DIE(nv_ret);
+	if (unlikely(nv_mainloop() != NV_RET_SUCC))
+		DIE(nv_ret);
+	return EXIT_SUCCESS;
 }
