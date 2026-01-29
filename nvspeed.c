@@ -57,7 +57,6 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 static nvmlDevice_t *nv_device;
 static unsigned int *nv_num_fans;
 static unsigned int nv_device_count;
-static unsigned int nv_device_count;
 static int nv_inited;
 static nvmlReturn_t nv_ret;
 
@@ -117,8 +116,12 @@ nv_init()
 			DIE(nv_ret);
 		DBG(fprintf(stderr, "Min speed for GPU%d: %d\n", i, min));
 		DBG(fprintf(stderr, "Max speed for GPU%d: %d\n", i, max));
-		/* for nv_step to work, first last_speed MUST be >= STEPDOWN_MAX. */
-		nv_speed_last[i] = STEPDOWN_MAX;
+		nv_speed_last[i] = table_percent[0];
+		/* Avoid underflow */
+		if (unlikely(STEPDOWN_MAX > table_percent[0])) {
+			fprintf(stderr, "STEPDOWN_MAX (%d) is greater than the minimum fan speed (%d).\n", STEPDOWN_MAX, table_percent[0]);
+			DIE(nv_ret);
+		}
 		nv_ret = nvmlDeviceGetNumFans(nv_device[i], nv_num_fans + i);
 		if (nv_ret != NVML_SUCCESS)
 			DIE(nv_ret);
