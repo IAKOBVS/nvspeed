@@ -8,7 +8,7 @@ PREFIX = /usr/local
 
 all: $(PROG)
 
-nvspeed: config.h macros.h
+nvspeed: config.h macros.h $(PROG).c
 	$(CC) -o $@ $(PROG).c $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
 
 config.h:

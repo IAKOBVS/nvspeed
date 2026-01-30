@@ -30,6 +30,7 @@
 #include <assert.h>
 #include <time.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "macros.h"
 
@@ -58,7 +59,7 @@ static nvmlDevice_t *nv_device;
 static unsigned int *nv_num_fans;
 static unsigned int nv_device_count;
 static int nv_inited;
-static nvmlReturn_t nv_ret;
+static nvmlReturn_t nv_ret = NVML_SUCCESS;
 
 static unsigned int *nv_speed_last;
 
@@ -67,10 +68,16 @@ nv_cleanup()
 {
 	if (nv_inited) {
 		/* Restore fan control policy. */
-		if (nv_num_fans)
+		if (nv_num_fans) {
+			setbuf(stdout, NULL);
 			for (unsigned int i = 0; i < nv_device_count; ++i)
-				for (unsigned int j = 0; j < nv_num_fans[i]; ++j)
-					nvmlDeviceSetDefaultFanSpeed_v2(nv_device[i], j);
+				for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
+					printf("Setting speed to fan%d of GPU%d to default.\n", j, i);
+					nv_ret = nvmlDeviceSetDefaultFanSpeed_v2(nv_device[i], j);
+					if (unlikely(nv_ret != NVML_SUCCESS))
+						DIE(nv_ret);
+				}
+		}
 		nvmlShutdown();
 	}
 	free(nv_device);
@@ -78,53 +85,74 @@ nv_cleanup()
 }
 
 static void
-nv_die(nvmlReturn_t ret)
+nv_exit(nvmlReturn_t ret)
 {
 	if (errno)
 		perror("");
 	fprintf(stderr, "nvspeed: %s\n", nvmlErrorString(ret));
 	nv_cleanup();
+	_Exit(ret == NVML_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
+static void
+nv_sig_handler(int signum)
+{
+	nv_cleanup();
+	_Exit(EXIT_SUCCESS);
+	(void)signum;
+}
+
+static void
+nv_sig_setup()
+{
+	if (unlikely(signal(SIGTERM, nv_sig_handler) == SIG_ERR))
+		DIE(nv_ret);
+	if (unlikely(signal(SIGINT, nv_sig_handler) == SIG_ERR))
+		DIE(nv_ret);
 }
 
 static nv_ret_ty
 nv_init()
 {
+	nv_sig_setup();
 	nv_ret = nvmlInit();
 	if (nv_ret != NVML_SUCCESS)
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	nv_inited = 1;
 	nv_ret = nvmlDeviceGetCount(&nv_device_count);
 	if (nv_ret != NVML_SUCCESS)
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	nv_device = (nvmlDevice_t *)calloc(nv_device_count, sizeof(nvmlDevice_t));
 	if (nv_device == NULL)
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	nv_speed_last = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
 	if (nv_speed_last == NULL)
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	nv_num_fans = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
 	if (nv_num_fans == NULL)
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	for (unsigned int i = 0; i < nv_device_count; ++i) {
 		nv_ret = nvmlDeviceGetHandleByIndex(i, nv_device + i);
 		if (nv_ret != NVML_SUCCESS)
-			DIE(nv_ret);
+			DIE_GRACEFUL(nv_ret);
 		unsigned int min;
 		unsigned int max;
 		nv_ret = nvmlDeviceGetMinMaxFanSpeed(nv_device[i], &min, &max);
 		if (nv_ret != NVML_SUCCESS)
-			DIE(nv_ret);
-		DBG(fprintf(stderr, "Min speed for GPU%d: %d\n", i, min));
-		DBG(fprintf(stderr, "Max speed for GPU%d: %d\n", i, max));
-		nv_speed_last[i] = table_percent[0];
+			DIE_GRACEFUL(nv_ret);
+		printf("Min speed for GPU%d: %d\n", i, min);
+		printf("Max speed for GPU%d: %d\n", i, max);
+		nv_ret = nvmlDeviceGetFanSpeed(nv_device[i], nv_speed_last + i);
+		if (nv_ret != NVML_SUCCESS)
+			DIE_GRACEFUL(nv_ret);
 		/* Avoid underflow */
 		if (unlikely(STEPDOWN_MAX > table_percent[0])) {
 			fprintf(stderr, "STEPDOWN_MAX (%d) is greater than the minimum fan speed (%d).\n", STEPDOWN_MAX, table_percent[0]);
-			DIE(nv_ret);
+			DIE_GRACEFUL(nv_ret);
 		}
 		nv_ret = nvmlDeviceGetNumFans(nv_device[i], nv_num_fans + i);
 		if (nv_ret != NVML_SUCCESS)
-			DIE(nv_ret);
+			DIE_GRACEFUL(nv_ret);
 	}
 	return NV_RET_SUCC;
 }
@@ -145,7 +173,7 @@ nv_mainloop(void)
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
-				DIE(nv_ret);
+				DIE_GRACEFUL(nv_ret);
 			DBG(fprintf(stderr, "Getting temp: %d.\n", temp));
 			speed = table_percent[temp];
 			DBG(fprintf(stderr, "Getting speed: %d.\n", speed));
@@ -158,11 +186,11 @@ nv_mainloop(void)
 				DBG(fprintf(stderr, "Setting speed %d to fan%d of GPU%d.\n", speed, j, i));
 				nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], j, (unsigned int)speed);
 				if (unlikely(nv_ret != NVML_SUCCESS))
-					DIE(nv_ret);
+					DIE_GRACEFUL(nv_ret);
 			}
 		}
 		if (unlikely(sleep(INTERVAL)))
-			DIE(nv_ret);
+			DIE_GRACEFUL(nv_ret);
 	}
 	return NV_RET_SUCC;
 }
@@ -171,8 +199,8 @@ int
 main(void)
 {
 	if (unlikely(nv_init() != NV_RET_SUCC))
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	if (unlikely(nv_mainloop() != NV_RET_SUCC))
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	return EXIT_SUCCESS;
 }

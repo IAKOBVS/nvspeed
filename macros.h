@@ -15,11 +15,18 @@
 #		define ASSERT_FUNC __func__
 #	endif
 
-#	define DIE(nv_ret)                                                             \
+#	define DIE(nv_ret)                                                                \
+		do {                                                                       \
+			fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, ASSERT_FUNC);    \
+			if (nv_ret)                                                        \
+				fprintf(stderr, "nvspeed: %s\n", nvmlErrorString(nv_ret)); \
+			_Exit(EXIT_FAILURE);                                               \
+		} while (0)
+
+#	define DIE_GRACEFUL(nv_ret)                                                    \
 		do {                                                                    \
-			nv_die(nv_ret);                                                 \
 			fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, ASSERT_FUNC); \
-			exit(EXIT_FAILURE);                                             \
+			nv_exit(EXIT_FAILURE);                                          \
 		} while (0)
 
 #	ifdef __glibc_has_builtin
