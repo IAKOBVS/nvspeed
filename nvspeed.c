@@ -174,16 +174,16 @@ nv_mainloop(void)
 			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				DIE_GRACEFUL(nv_ret);
-			DBG(fprintf(stderr, "Getting temp: %d.\n", temp));
+			DBG(fprintf(stderr, "%s:%d:%s: getting temp: %d.\n", temp, __FILE__, __LINE__, ASSERT_FUNC));
 			speed = table_percent[temp];
-			DBG(fprintf(stderr, "Getting speed: %d.\n", speed));
+			DBG(fprintf(stderr, "%s:%d:%s: getting speed: %d.\n", speed, __FILE__, __LINE__, ASSERT_FUNC));
 			/* Avoid updating if speed has not changed. */
 			if (speed == nv_speed_last[i])
 				continue;
 			speed = nv_step(speed, nv_speed_last[i]);
 			nv_speed_last[i] = speed;
 			for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
-				DBG(fprintf(stderr, "Setting speed %d to fan%d of GPU%d.\n", speed, j, i));
+				DBG(fprintf(stderr, "%s:%d:%s: setting speed %d to fan%d of GPU%d.\n", speed, j, i, __FILE__, __LINE__, ASSERT_FUNC));
 				nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], j, (unsigned int)speed);
 				if (unlikely(nv_ret != NVML_SUCCESS))
 					DIE_GRACEFUL(nv_ret);

@@ -26,7 +26,7 @@
 #	define DIE_GRACEFUL(nv_ret)                                                    \
 		do {                                                                    \
 			fprintf(stderr, "%s:%d:%s\n", __FILE__, __LINE__, ASSERT_FUNC); \
-			nv_exit(EXIT_FAILURE);                                          \
+			nv_exit(nv_ret);                                          \
 		} while (0)
 
 #	ifdef __glibc_has_builtin
