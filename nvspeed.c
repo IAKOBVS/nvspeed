@@ -55,33 +55,34 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 }
 
 /* Global variables */
-static nvmlDevice_t *nv_device;
-static unsigned int *nv_num_fans;
+typedef struct {
+	nvmlDevice_t device;
+	unsigned int num_fans;
+	unsigned int speed_last;
+} nv_ty;
+static nv_ty *nv;
 static unsigned int nv_device_count;
 static int nv_inited;
 static nvmlReturn_t nv_ret = NVML_SUCCESS;
-
-static unsigned int *nv_speed_last;
 
 static void
 nv_cleanup()
 {
 	if (nv_inited) {
-		/* Restore fan control policy. */
-		if (nv_num_fans) {
+		if (nv) {
+			/* Restore fan control policy. */
 			setbuf(stdout, NULL);
 			for (unsigned int i = 0; i < nv_device_count; ++i)
-				for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
+				for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
 					printf("Setting speed to fan%d of GPU%d to default.\n", j, i);
-					nv_ret = nvmlDeviceSetDefaultFanSpeed_v2(nv_device[i], j);
+					nv_ret = nvmlDeviceSetDefaultFanSpeed_v2(nv[i].device, j);
 					if (unlikely(nv_ret != NVML_SUCCESS))
 						DIE(nv_ret);
 				}
 		}
 		nvmlShutdown();
 	}
-	free(nv_device);
-	free(nv_speed_last);
+	free(nv);
 }
 
 static void
@@ -122,27 +123,21 @@ nv_init()
 	nv_ret = nvmlDeviceGetCount(&nv_device_count);
 	if (nv_ret != NVML_SUCCESS)
 		DIE_GRACEFUL(nv_ret);
-	nv_device = (nvmlDevice_t *)calloc(nv_device_count, sizeof(nvmlDevice_t));
-	if (nv_device == NULL)
-		DIE_GRACEFUL(nv_ret);
-	nv_speed_last = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
-	if (nv_speed_last == NULL)
-		DIE_GRACEFUL(nv_ret);
-	nv_num_fans = (unsigned int *)calloc(nv_device_count, sizeof(unsigned int));
-	if (nv_num_fans == NULL)
+	nv = calloc(nv_device_count, sizeof(*nv));
+	if (nv == NULL)
 		DIE_GRACEFUL(nv_ret);
 	for (unsigned int i = 0; i < nv_device_count; ++i) {
-		nv_ret = nvmlDeviceGetHandleByIndex(i, nv_device + i);
+		nv_ret = nvmlDeviceGetHandleByIndex(i, &nv[i].device);
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 		unsigned int min;
 		unsigned int max;
-		nv_ret = nvmlDeviceGetMinMaxFanSpeed(nv_device[i], &min, &max);
+		nv_ret = nvmlDeviceGetMinMaxFanSpeed(nv[i].device, &min, &max);
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 		printf("Min speed for GPU%d: %d\n", i, min);
 		printf("Max speed for GPU%d: %d\n", i, max);
-		nv_ret = nvmlDeviceGetFanSpeed(nv_device[i], nv_speed_last + i);
+		nv_ret = nvmlDeviceGetFanSpeed(nv[i].device, &(nv[i].speed_last));
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 		/* Avoid underflow */
@@ -150,7 +145,7 @@ nv_init()
 			fprintf(stderr, "STEPDOWN_MAX (%d) is greater than the minimum fan speed (%d).\n", STEPDOWN_MAX, table_percent[0]);
 			DIE_GRACEFUL(nv_ret);
 		}
-		nv_ret = nvmlDeviceGetNumFans(nv_device[i], nv_num_fans + i);
+		nv_ret = nvmlDeviceGetNumFans(nv[i].device, &nv[i].num_fans);
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 	}
@@ -171,20 +166,20 @@ nv_mainloop(void)
 	unsigned int temp;
 	for (;;) {
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
-			nv_ret = nv_nvmlDeviceGetTemperature(nv_device[i], NVML_TEMPERATURE_GPU, &temp);
+			nv_ret = nv_nvmlDeviceGetTemperature(nv[i].device, NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				DIE_GRACEFUL(nv_ret);
-			DBG(fprintf(stderr, "%s:%d:%s: getting temp: %d.\n", temp, __FILE__, __LINE__, ASSERT_FUNC));
+			DBG(fprintf(stderr, "%s:%d:%s: getting temp for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, temp));
 			speed = table_percent[temp];
-			DBG(fprintf(stderr, "%s:%d:%s: getting speed: %d.\n", speed, __FILE__, __LINE__, ASSERT_FUNC));
+			DBG(fprintf(stderr, "%s:%d:%s: getting speed for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, speed));
 			/* Avoid updating if speed has not changed. */
-			if (speed == nv_speed_last[i])
+			if (speed == nv[i].speed_last)
 				continue;
-			speed = nv_step(speed, nv_speed_last[i]);
-			nv_speed_last[i] = speed;
-			for (unsigned int j = 0; j < nv_num_fans[i]; ++j) {
-				DBG(fprintf(stderr, "%s:%d:%s: setting speed %d to fan%d of GPU%d.\n", speed, j, i, __FILE__, __LINE__, ASSERT_FUNC));
-				nv_ret = nvmlDeviceSetFanSpeed_v2(nv_device[i], j, (unsigned int)speed);
+			speed = nv_step(speed, nv[i].speed_last);
+			nv[i].speed_last = speed;
+			for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
+				DBG(fprintf(stderr, "%s:%d:%s: setting speed %d to fan%d of GPU%d.\n", __FILE__, __LINE__, ASSERT_FUNC, speed, j, i));
+				nv_ret = nvmlDeviceSetFanSpeed_v2(nv[i].device, j, (unsigned int)speed);
 				if (unlikely(nv_ret != NVML_SUCCESS))
 					DIE_GRACEFUL(nv_ret);
 			}
