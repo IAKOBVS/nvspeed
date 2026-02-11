@@ -167,10 +167,10 @@ nv_mainloop(void)
 			DBG(fprintf(stderr, "%s:%d:%s: getting temp for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, temp));
 			speed = table_percent[temp];
 			DBG(fprintf(stderr, "%s:%d:%s: getting speed for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, speed));
+			speed = nv_step(speed, nv[i].speed_last);
 			/* Avoid updating if speed has not changed. */
 			if (speed == nv[i].speed_last)
 				continue;
-			speed = nv_step(speed, nv[i].speed_last);
 			nv[i].speed_last = speed;
 			for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
 				DBG(fprintf(stderr, "%s:%d:%s: setting speed %d to fan%d of GPU%d.\n", __FILE__, __LINE__, ASSERT_FUNC, speed, j, i));
