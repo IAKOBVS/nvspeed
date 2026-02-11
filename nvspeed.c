@@ -34,11 +34,6 @@
 
 #include "macros.h"
 
-typedef enum {
-	NV_RET_SUCC = 0,
-	NV_RET_ERR
-} nv_ret_ty;
-
 static nvmlReturn_t
 nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
 {
@@ -112,7 +107,7 @@ nv_sig_setup()
 		DIE(nv_ret);
 }
 
-static nv_ret_ty
+static int
 nv_init()
 {
 	nv_sig_setup();
@@ -149,7 +144,7 @@ nv_init()
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 	}
-	return NV_RET_SUCC;
+	return 0;
 }
 
 static ATTR_INLINE unsigned int
@@ -159,7 +154,7 @@ nv_step(unsigned int speed, unsigned int last_speed)
 	return (speed > last_speed - STEPDOWN_MAX) ? speed : (last_speed - STEPDOWN_MAX);
 }
 
-static nv_ret_ty
+static int
 nv_mainloop(void)
 {
 	unsigned int speed;
@@ -187,15 +182,15 @@ nv_mainloop(void)
 		if (unlikely(sleep(INTERVAL)))
 			DIE_GRACEFUL(nv_ret);
 	}
-	return NV_RET_SUCC;
+	return 0;
 }
 
 int
 main(void)
 {
-	if (unlikely(nv_init() != NV_RET_SUCC))
+	if (unlikely(nv_init() != 0))
 		DIE_GRACEFUL(nv_ret);
-	if (unlikely(nv_mainloop() != NV_RET_SUCC))
+	if (unlikely(nv_mainloop() != 0))
 		DIE_GRACEFUL(nv_ret);
 	return EXIT_SUCCESS;
 }
