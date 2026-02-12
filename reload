@@ -1,0 +1,7 @@
+#!/bin/sh
+BIN=nvspeed
+LOG_FILE=/tmp/nvspeed.log
+sudo killall "$BIN"
+make
+sudo make install
+nohup sudo nvspeed >/dev/null 2>"$LOG_FILE" &
