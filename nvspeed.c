@@ -49,6 +49,7 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 #endif
 }
 
+const unsigned char *nv_temptospeed = nv_table_temptospeed_med;
 /* Global variables */
 typedef struct {
 	nvmlDevice_t device;
@@ -66,11 +67,9 @@ nv_cleanup()
 	if (nv_inited) {
 		if (nv) {
 			/* Restore fan control policy. */
-			setbuf(stdout, NULL);
 			for (unsigned int i = 0; i < nv_device_count; ++i)
 				for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
-					printf("Setting speed to fan%d of GPU%d to default.\n", j, i);
-					nv_ret = nvmlDeviceSetDefaultFanSpeed_v2(nv[i].device, j);
+					nv_ret = nvmlDeviceSetFanControlPolicy(nv[i].device, i, NVML_FAN_POLICY_TEMPERATURE_CONTINOUS_SW);
 					if (unlikely(nv_ret != NVML_SUCCESS))
 						DIE(nv_ret);
 				}
@@ -136,8 +135,8 @@ nv_init()
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
 		/* Avoid underflow */
-		if (unlikely(STEPDOWN_MAX > table_percent[0])) {
-			fprintf(stderr, "STEPDOWN_MAX (%d) is greater than the minimum fan speed (%d).\n", STEPDOWN_MAX, table_percent[0]);
+		if (unlikely(STEPDOWN_MAX > nv_temptospeed[0])) {
+			fprintf(stderr, "STEPDOWN_MAX (%d) is greater than the minimum fan speed (%d).\n", STEPDOWN_MAX, nv_temptospeed[0]);
 			DIE_GRACEFUL(nv_ret);
 		}
 		nv_ret = nvmlDeviceGetNumFans(nv[i].device, &nv[i].num_fans);
@@ -165,7 +164,7 @@ nv_mainloop(void)
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				DIE_GRACEFUL(nv_ret);
 			DBG(fprintf(stderr, "%s:%d:%s: getting temp for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, temp));
-			speed = table_percent[temp];
+			speed = nv_temptospeed[temp];
 			DBG(fprintf(stderr, "%s:%d:%s: getting speed for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, speed));
 			speed = nv_step(speed, nv[i].speed_last);
 			/* Avoid updating if speed has not changed. */
