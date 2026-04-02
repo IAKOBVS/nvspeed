@@ -9,6 +9,7 @@
 #	define INTERVAL  1
 /* Maximum fan speed change per update when ramping down (0-100). */
 #	define STEPDOWN_MAX 4
+#	define FAN_CURVE_DEFAULT nv_table_temptospeed_high
 
 /* Fan speed: 0-100%
  * c_table_temptospeed[temperature] = percentage (integer) */

@@ -49,7 +49,7 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 #endif
 }
 
-const unsigned char *nv_temptospeed = nv_table_temptospeed_high;
+const unsigned char *nv_temptospeed = FAN_CURVE_DEFAULT;
 /* Global variables */
 typedef struct {
 	nvmlDevice_t device;
