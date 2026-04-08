@@ -6,7 +6,10 @@ CFLAGS += -O2 -march=native -fanalyzer -Wno-unknown-argument -Wpedantic -pedanti
 PROG = nvspeed
 PREFIX = /usr/local
 
-all: $(PROG)
+all: $(PROG) nvspeed-print
+
+nvspeed-print: nvspeed-print.c $(REQ) $(PROG)
+	$(CC) -o $@ nvspeed-print.c $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
 
 nvspeed: config.h macros.h $(PROG).c
 	$(CC) -o $@ $(PROG).c $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
@@ -19,7 +22,7 @@ config: config.h
 clean:
 	rm -f $(PROG)
 
-install: $(PROG)
+install: $(PROG) nvspeed-print
 	strip $(PROG)
 	chmod 755 $^
 	mkdir -p $(DESTDIR)$(PREFIX)/bin

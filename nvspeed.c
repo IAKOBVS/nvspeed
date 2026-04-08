@@ -27,12 +27,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <assert.h>
 #include <time.h>
 #include <errno.h>
+#include <string.h>
 #include <signal.h>
+#include <sys/stat.h>
 
 #include "macros.h"
+
+#define LEN(X)       (sizeof(X) / sizeof(X[0]))
+#define S_LITERAL(s) s, S_LEN(s)
+#define S_LEN(s)     (sizeof(s) - 1)
 
 static nvmlReturn_t
 nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
@@ -184,9 +191,73 @@ nv_mainloop(void)
 	return 0;
 }
 
-int
-main(void)
+static int
+nv_puts_len(const char *filename, const char *buf, unsigned int len)
 {
+	int fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC);
+	if (unlikely(fd == -1))
+		return -1;
+	int write_sz = write(fd, buf, len);
+	if (unlikely(write_sz == -1)) {
+		close(fd);
+		return -1;
+	}
+	if (unlikely(close(fd) == -1))
+		return -1;
+	return 0;
+}
+
+static void
+nv_mode_setup()
+{
+	if (mkdir(NVSPEED_PATH, 0777) != 0)
+		assert(errno == EEXIST);
+	if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_LOCK, "", 0) == -1)) {
+		fprintf(stderr, "nvspeed: another instance is already running.\n");
+		exit(EXIT_FAILURE);
+	}
+	if (nv_temptospeed == nv_table_temptospeed_med) {
+		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_LITERAL("medium\n")) == -1)) {
+			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+			exit(EXIT_FAILURE);
+		}
+	} else if (nv_temptospeed == nv_table_temptospeed_high) {
+		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_LITERAL("high\n")) == -1)) {
+			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+			exit(EXIT_FAILURE);
+		}
+	}
+	if (unlikely(chmod(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1)) {
+		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
+	}
+}
+
+#define _(x) x
+
+const char *usage = _("Usage: nvspeed [OPTIONS]...\n")
+                    _("Options:\n")
+                    _("  --medium\n")
+                    _("    Medium fan speed.\n")
+                    _("  --high\n")
+                    _("    High fan speed.\n");
+
+int
+main(int argc, char **argv)
+{
+	if (argc == 2) {
+		if (!strcmp(argv[1], "--medium")) {
+			printf("nvspeed: using medium fan speed.\n");
+			nv_temptospeed = nv_table_temptospeed_med;
+		} else if (!strcmp(argv[1], "--high")) {
+			printf("nvspeed: using high fan speed.\n");
+			nv_temptospeed = nv_table_temptospeed_high;
+		} else {
+			fprintf(stderr, "%s", usage);
+			exit(EXIT_FAILURE);
+		}
+	}
+	nv_mode_setup();
 	if (unlikely(nv_init() != 0))
 		DIE_GRACEFUL(nv_ret);
 	if (unlikely(nv_mainloop() != 0))
