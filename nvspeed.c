@@ -88,7 +88,6 @@ nv_mode_cleanup()
 static void
 nv_cleanup()
 {
-	nv_mode_cleanup();
 	if (nv_inited) {
 		if (nv) {
 			/* Restore fan control policy. */
@@ -101,6 +100,7 @@ nv_cleanup()
 		}
 		nvmlShutdown();
 	}
+	nv_mode_cleanup();
 	free(nv);
 }
 
