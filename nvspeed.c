@@ -69,8 +69,26 @@ static int nv_inited;
 static nvmlReturn_t nv_ret = NVML_SUCCESS;
 
 static void
+nv_mode_cleanup()
+{
+	if (unlikely(unlink(NVSPEED_PATH "/" NVSPEED_FILE_CURVE) == -1)) {
+		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
+	}
+	if (unlikely(unlink(NVSPEED_PATH "/" NVSPEED_FILE_LOCK) == -1)) {
+		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_LOCK);
+		exit(EXIT_FAILURE);
+	}
+	if (unlikely(rmdir(NVSPEED_PATH) == -1)) {
+		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH);
+		exit(EXIT_FAILURE);
+	}
+}
+
+static void
 nv_cleanup()
 {
+	nv_mode_cleanup();
 	if (nv_inited) {
 		if (nv) {
 			/* Restore fan control policy. */
