@@ -29,4 +29,4 @@ install: $(PROG) nvspeed-print
 	command -v rsync >/dev/null && rsync -a -r -c $^ $(DESTDIR)$(PREFIX)/bin || cp -f $^ $(DESTDIR)$(PREFIX)/bin
 
 uninstall:
-	rm -f $(DESTDIR)$(PREFIX)/bin/$(PROG)
+	rm -f $(DESTDIR)$(PREFIX)/bin/$(PROG) $(DESTDIR)$(PREFIX)/bin/nvspeed-print
