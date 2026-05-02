@@ -210,9 +210,9 @@ nv_mainloop(void)
 }
 
 static int
-nv_puts_len(const char *filename, const char *buf, unsigned int len)
+nv_puts_len(const char *filename, int oflag, const char *buf, unsigned int len)
 {
-	int fd = open(filename, O_WRONLY | O_CREAT);
+	int fd = open(filename, O_WRONLY | oflag);
 	if (unlikely(fd == -1))
 		return -1;
 	int write_sz = write(fd, buf, len);
@@ -230,17 +230,17 @@ nv_mode_setup()
 {
 	if (mkdir(NVSPEED_PATH, 0777) != 0)
 		assert(errno == EEXIST);
-	if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_LOCK, "", 0) == -1)) {
+	if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_LOCK, O_CREAT | O_EXCL, "", 0) == -1)) {
 		fprintf(stderr, "nvspeed: another instance is already running.\n");
 		exit(EXIT_FAILURE);
 	}
 	if (nv_temptospeed == nv_table_temptospeed_med) {
-		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_LITERAL("medium\n")) == -1)) {
+		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, O_CREAT | O_EXCL, S_LITERAL("medium\n")) == -1)) {
 			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
 			exit(EXIT_FAILURE);
 		}
 	} else if (nv_temptospeed == nv_table_temptospeed_high) {
-		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_LITERAL("high\n")) == -1)) {
+		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, O_CREAT | O_EXCL, S_LITERAL("high\n")) == -1)) {
 			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
 			exit(EXIT_FAILURE);
 		}
