@@ -19,8 +19,12 @@ config.h:
 
 config: config.h
 
+test: config.h macros.h tests/test.h tests/tests.c
+	$(CC) -I. -o $@ tests/tests.c $(CFLAGS) $(CPPFLAGS) $(LDFLAGS)
+	./$@
+
 clean:
-	rm -f $(PROG) nvspeed-print
+	rm -f $(PROG) nvspeed-print test
 
 install: $(PROG) nvspeed-print
 	strip $(PROG)

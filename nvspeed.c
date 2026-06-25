@@ -36,10 +36,6 @@
 
 #include "macros.h"
 
-#define LEN(X)       (sizeof(X) / sizeof(X[0]))
-#define S_LITERAL(s) s, S_LEN(s)
-#define S_LEN(s)     (sizeof(s) - 1)
-
 static nvmlReturn_t
 nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
 {
@@ -165,7 +161,8 @@ static ATTR_INLINE unsigned int
 nv_step(unsigned int speed, unsigned int last_speed)
 {
 	/* Ramp down slower, STEPDOWN_MAX per update at maximum. */
-	return (speed > last_speed - STEPDOWN_MAX) ? speed : (last_speed - STEPDOWN_MAX);
+	unsigned int low = (last_speed > STEPDOWN_MAX) ? last_speed - STEPDOWN_MAX : 0;
+	return (speed > low) ? speed : low;
 }
 
 static void

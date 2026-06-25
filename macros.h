@@ -62,6 +62,10 @@
 #		define HAS_ATTRIBUTE(attr) 0
 #	endif /* has_attribute */
 
+#define LEN(X)       (sizeof(X) / sizeof(X[0]))
+#define S_LITERAL(s) s, S_LEN(s)
+#define S_LEN(s)     (sizeof(s) - 1)
+
 #	ifndef ATTR_INLINE_
 #		ifdef __inline
 #			define ATTR_INLINE_ __inline

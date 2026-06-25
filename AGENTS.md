@@ -30,12 +30,12 @@ CPPFLAGS=-DDEBUG=1 make
 
 ## Oddities / gotchas
 
-- `make clean` only removes `nvspeed` binary, **not** `nvspeed-print`.
-- `.gitignore` ignores `nvspeed` (binary) and `config.h` (generated local config).
+- `.gitignore` ignores `nvspeed`, `nvspeed-print`, `test` (binaries) and `config.h` (generated local config).
 - Runtime requires `sudo` (NVML fan control). Single-instance enforced via `/tmp/nvspeed/nvspeed.lock`.
 - NVML path hardcoded: lib at `/opt/cuda/lib64`, header at `/opt/cuda/include/nvml.h`.
 - C89-ish style — no VLAs, no `//` comments, space-indented, no clang-format config.
-- No tests, no CI, no linter/formatter, no typechecker — `CFLAGS` include `-fanalyzer -Wall -Wextra -Wpedantic` for static analysis at build time.
+- No CI, no linter/formatter, no typechecker — `CFLAGS` include `-fanalyzer -Wall -Wextra -Wpedantic` for static analysis at build time.
+- Tests (`make test`) test `nv_step`, fan curve table integrity, and macros. No GPU required.
 
 ## Conventions
 
