@@ -20,7 +20,7 @@ config.h:
 config: config.h
 
 clean:
-	rm -f $(PROG)
+	rm -f $(PROG) nvspeed-print
 
 install: $(PROG) nvspeed-print
 	strip $(PROG)

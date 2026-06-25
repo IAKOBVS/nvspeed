@@ -29,7 +29,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <assert.h>
-#include <time.h>
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
@@ -56,7 +55,7 @@ nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensor
 #endif
 }
 
-const unsigned char *nv_temptospeed = FAN_CURVE_DEFAULT;
+static const unsigned char *nv_temptospeed = FAN_CURVE_DEFAULT;
 /* Global variables */
 typedef struct {
 	nvmlDevice_t device;
@@ -67,22 +66,14 @@ static nv_ty *nv;
 static unsigned int nv_device_count;
 static int nv_inited;
 static nvmlReturn_t nv_ret = NVML_SUCCESS;
+static volatile sig_atomic_t nv_quit;
 
 static void
 nv_mode_cleanup()
 {
-	if (unlikely(unlink(NVSPEED_PATH "/" NVSPEED_FILE_CURVE) == -1)) {
-		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
-		exit(EXIT_FAILURE);
-	}
-	if (unlikely(unlink(NVSPEED_PATH "/" NVSPEED_FILE_LOCK) == -1)) {
-		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_LOCK);
-		exit(EXIT_FAILURE);
-	}
-	if (unlikely(rmdir(NVSPEED_PATH) == -1)) {
-		fprintf(stderr, "nvspeed: can't remove %s.\n", NVSPEED_PATH);
-		exit(EXIT_FAILURE);
-	}
+	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_LOCK);
+	(void)rmdir(NVSPEED_PATH);
 }
 
 static void
@@ -108,7 +99,7 @@ static void
 nv_exit(nvmlReturn_t ret)
 {
 	if (errno)
-		perror("");
+		perror("nvspeed");
 	fprintf(stderr, "nvspeed: %s\n", nvmlErrorString(ret));
 	nv_cleanup();
 	_Exit(ret == NVML_SUCCESS ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -117,8 +108,7 @@ nv_exit(nvmlReturn_t ret)
 static void
 nv_sig_handler(int signum)
 {
-	nv_cleanup();
-	_Exit(EXIT_SUCCESS);
+	nv_quit = 1;
 	(void)signum;
 }
 
@@ -154,8 +144,8 @@ nv_init()
 		nv_ret = nvmlDeviceGetMinMaxFanSpeed(nv[i].device, &min, &max);
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
-		printf("Min speed for GPU%d: %d\n", i, min);
-		printf("Max speed for GPU%d: %d\n", i, max);
+		DBG(fprintf(stderr, "Min speed for GPU%d: %d\n", i, min));
+		DBG(fprintf(stderr, "Max speed for GPU%d: %d\n", i, max));
 		nv_ret = nvmlDeviceGetFanSpeed(nv[i].device, &(nv[i].speed_last));
 		if (nv_ret != NVML_SUCCESS)
 			DIE_GRACEFUL(nv_ret);
@@ -178,12 +168,14 @@ nv_step(unsigned int speed, unsigned int last_speed)
 	return (speed > last_speed - STEPDOWN_MAX) ? speed : (last_speed - STEPDOWN_MAX);
 }
 
-static int
+static void
 nv_mainloop(void)
 {
 	unsigned int speed;
 	unsigned int temp;
 	for (;;) {
+		if (unlikely(nv_quit))
+			break;
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv[i].device, NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
@@ -203,10 +195,11 @@ nv_mainloop(void)
 					DIE_GRACEFUL(nv_ret);
 			}
 		}
-		if (unlikely(sleep(INTERVAL)))
-			DIE_GRACEFUL(nv_ret);
+		while (sleep(INTERVAL) != 0) {
+			if (nv_quit)
+				break;
+		}
 	}
-	return 0;
 }
 
 static int
@@ -253,7 +246,7 @@ nv_mode_setup()
 
 #define _(x) x
 
-const char *usage = _("Usage: nvspeed [OPTIONS]...\n")
+static const char *usage = _("Usage: nvspeed [OPTIONS]...\n")
                     _("Options:\n")
                     _("  --medium\n")
                     _("    Medium fan speed.\n")
@@ -278,7 +271,7 @@ main(int argc, char **argv)
 	nv_mode_setup();
 	if (unlikely(nv_init() != 0))
 		DIE_GRACEFUL(nv_ret);
-	if (unlikely(nv_mainloop() != 0))
-		DIE_GRACEFUL(nv_ret);
+	nv_mainloop();
+	nv_cleanup();
 	return EXIT_SUCCESS;
 }
