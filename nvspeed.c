@@ -165,18 +165,89 @@ nv_step(unsigned int speed, unsigned int last_speed)
 	return (speed > low) ? speed : low;
 }
 
+int global_fd_temp = -1;
+unsigned int global_temp_old_sz = 0;
+
+static char *
+c_utoa_lt3_p(unsigned int num, char *buf)
+{
+	if (likely((unsigned int)(num - 10) < 90)) {
+		*(buf + 0) = (num / 10) + '0';
+		*(buf + 1) = (num % 10) + '0';
+		*(buf + 2) = '\0';
+		return buf + 2;
+	}
+	if (num > 99) {
+		*(buf + 0) = (num / 100) + '0';
+		*(buf + 1) = ((num / 10) % 10) + '0';
+		*(buf + 2) = (num % 10) + '0';
+		*(buf + 3) = '\0';
+		return buf + 3;
+	}
+	*(buf + 0) = num + '0';
+	*(buf + 1) = '\0';
+	return buf + 1;
+}
+
+static int
+nv_temp_init(void)
+{
+	int fd = open(NVSPEED_PATH "/" NVSPEED_FILE_TEMP, O_CREAT | O_WRONLY);
+	if (unlikely(fd < 0)) {
+		DIE_GRACEFUL(nv_ret);
+		return -1;
+	}
+	if (unlikely(chmod(NVSPEED_PATH "/" NVSPEED_FILE_TEMP, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1)) {
+		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
+	}
+	return fd;
+}
+
+static int
+nv_temp_write(int fd, unsigned int temp)
+{
+	char buf[20 + 1];
+	unsigned int size = c_utoa_lt3_p(temp, buf) - buf;
+	/* Print milidegrees, like sysfs. */
+	buf[size] = '0';
+	++size;
+	buf[size] = '0';
+	++size;
+	buf[size] = '0';
+	++size;
+	buf[size] = '\n';
+	++size;
+	buf[size] = '\0';
+	if (unlikely(size != global_temp_old_sz)) {
+		global_temp_old_sz = size;
+		ftruncate(fd, size);
+	}
+	if (unlikely(pwrite(fd, buf, size, 0) < 0)) {
+		DIE_GRACEFUL(nv_ret);
+		return -1;
+	}
+	return 0;
+}
+
 static void
 nv_mainloop(void)
 {
+#if PRINT_TEMP
+	global_fd_temp = nv_temp_init();
+#endif
 	unsigned int speed;
 	unsigned int temp;
 	for (;;) {
 		if (unlikely(nv_quit))
 			break;
+		unsigned int max = 0;
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv[i].device, NVML_TEMPERATURE_GPU, &temp);
 			if (unlikely(nv_ret != NVML_SUCCESS))
 				DIE_GRACEFUL(nv_ret);
+			if (temp > max)
+				max = temp;
 			DBG(fprintf(stderr, "%s:%d:%s: getting temp for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, temp));
 			speed = nv_temptospeed[temp];
 			DBG(fprintf(stderr, "%s:%d:%s: getting speed for GPU%d: %d.\n", __FILE__, __LINE__, ASSERT_FUNC, i, speed));
@@ -192,6 +263,10 @@ nv_mainloop(void)
 					DIE_GRACEFUL(nv_ret);
 			}
 		}
+#if PRINT_TEMP
+		/* Write to tmpfs. */
+		nv_temp_write(global_fd_temp, max);
+#endif
 		while (sleep(INTERVAL) != 0) {
 			if (nv_quit)
 				break;

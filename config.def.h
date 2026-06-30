@@ -15,6 +15,11 @@
 #	define NVSPEED_FILE_CURVE "curve"
 #	define NVSPEED_FILE_LOCK  "nvspeed.lock"
 
+/* Print temp to /tmp/nvspeed/temp (like sysfs). This is good for mutliple
+ * processes using NVML, avoiding internal global lock, which seems to be
+ * much slower than even syscall overhead and string formatting. */
+#	define PRINT_TEMP 1
+
 /* Fan speed: 0-255
  * nv_table_temptospeed[temperature] = speed */
 static const unsigned char nv_table_temptospeed_med[] = {
