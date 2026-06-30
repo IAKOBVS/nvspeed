@@ -207,15 +207,11 @@ nv_temp_init(void)
 static int
 nv_temp_write(int fd, unsigned int temp)
 {
-	char buf[20 + 1];
+	char buf[8];
+	memset(buf, '0', sizeof(buf));
 	unsigned int size = c_utoa_lt3_p(temp, buf) - buf;
 	/* Print milidegrees, like sysfs. */
-	buf[size] = '0';
-	++size;
-	buf[size] = '0';
-	++size;
-	buf[size] = '0';
-	++size;
+	size += 3;
 	buf[size] = '\n';
 	++size;
 	buf[size] = '\0';
