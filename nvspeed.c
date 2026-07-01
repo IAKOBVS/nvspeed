@@ -220,6 +220,7 @@ nv_mainloop(void)
 #if PRINT_TEMP
 	global_fd_temp = nv_temp_init();
 #endif
+	unsigned int last_max = (unsigned int)-1;
 	unsigned int speed;
 	unsigned int temp;
 	for (; !nv_quit; ) {
@@ -246,12 +247,12 @@ nv_mainloop(void)
 			}
 		}
 #if PRINT_TEMP
-		/* Write to tmpfs. */
-		nv_temp_write(global_fd_temp, max);
+		/* Write to tmpfs, if temp has changed */
+		if (last_max != max || unlikely(last_max == (unsigned int)-1))
+			nv_temp_write(global_fd_temp, max);
+		last_max = max;
 #endif
-		while (nanosleep(&nv_ts, &nv_ts) == -1 && errno == EINTR)
-			if (nv_quit)
-				break;
+		nanosleep(&nv_ts, NULL);
 	}
 }
 
