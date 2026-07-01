@@ -32,9 +32,12 @@
 #include <errno.h>
 #include <string.h>
 #include <signal.h>
+#include <time.h>
 #include <sys/stat.h>
 
 #include "macros.h"
+
+static struct timespec nv_ts = { .tv_sec = INTERVAL, .tv_nsec = 0 };
 
 static nvmlReturn_t
 nv_nvmlDeviceGetTemperature(nvmlDevice_t device, nvmlTemperatureSensors_t sensorType, unsigned int *temp)
@@ -265,10 +268,9 @@ nv_mainloop(void)
 		/* Write to tmpfs. */
 		nv_temp_write(global_fd_temp, max);
 #endif
-		while (sleep(INTERVAL) != 0) {
+		while (nanosleep(&nv_ts, &nv_ts) == -1 && errno == EINTR)
 			if (nv_quit)
 				break;
-		}
 	}
 }
 
