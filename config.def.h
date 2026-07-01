@@ -15,9 +15,16 @@
 #	define NVSPEED_FILE_CURVE "curve"
 #	define NVSPEED_FILE_LOCK  "nvspeed.lock"
 
-/* Print temp to /tmp/nvspeed/temp (like sysfs). This is good for mutliple
- * processes using NVML, avoiding internal global lock, which seems to be
- * much slower than even syscall overhead and string formatting. */
+/* Where to print temperature. */
+#	define NVSPEED_FILE_TEMP  "temp"
+
+/* Compile-time switch: if defined as 1, the daemon writes the current GPU
+ * temperature (in millidegrees Celsius, like hwmon sysfs) to
+ * /tmp/nvspeed/temp every INTERVAL seconds. This allows other processes to
+ * read the temperature via a simple file read instead of calling NVML
+ * directly — useful when multiple processes need GPU temperature, since
+ * NVML's internal global lock can be slower than file I/O.
+ * Set to 0 (or comment out) to disable. */
 #	define PRINT_TEMP 1
 
 /* Fan speed: 0-255
