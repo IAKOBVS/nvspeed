@@ -166,8 +166,10 @@ nv_step(unsigned int speed, unsigned int last_speed)
 	return (speed > low) ? speed : low;
 }
 
-int global_fd_temp = -1;
-unsigned int global_temp_old_sz = 0;
+#if PRINT_TEMP
+static int global_fd_temp = -1;
+#endif
+static unsigned int global_temp_old_sz = 0;
 
 static ATTR_INLINE char *
 c_utoa_lt3_p(unsigned int num, char *buf)
@@ -175,18 +177,15 @@ c_utoa_lt3_p(unsigned int num, char *buf)
 	if (likely((unsigned int)(num - 10) < 90)) {
 		*(buf + 0) = (num / 10) + '0';
 		*(buf + 1) = (num % 10) + '0';
-		*(buf + 2) = '\0';
 		return buf + 2;
 	}
 	if (num > 99) {
 		*(buf + 0) = (num / 100) + '0';
 		*(buf + 1) = ((num / 10) % 10) + '0';
 		*(buf + 2) = (num % 10) + '0';
-		*(buf + 3) = '\0';
 		return buf + 3;
 	}
 	*(buf + 0) = num + '0';
-	*(buf + 1) = '\0';
 	return buf + 1;
 }
 
@@ -209,10 +208,14 @@ static int
 nv_temp_write(int fd, unsigned int temp)
 {
 	char buf[8];
-	memset(buf, '0', sizeof(buf));
 	unsigned int size = c_utoa_lt3_p(temp, buf) - buf;
 	/* Print milidegrees, like sysfs. */
-	size += 3;
+	buf[size] = '0';
+	++size;
+	buf[size] = '0';
+	++size;
+	buf[size] = '0';
+	++size;
 	buf[size] = '\n';
 	++size;
 	buf[size] = '\0';
@@ -316,13 +319,12 @@ nv_mode_setup()
 	}
 }
 
-static const char *usage =
-    "Usage: nvspeed [OPTIONS]...\n"
-    "Options:\n"
-    "  --medium\n"
-    "    Medium fan speed.\n"
-    "  --high\n"
-    "    High fan speed.\n";
+static const char *usage = "Usage: nvspeed [OPTIONS]...\n"
+                           "Options:\n"
+                           "  --medium\n"
+                           "    Medium fan speed.\n"
+                           "  --high\n"
+                           "    High fan speed.\n";
 
 int
 main(int argc, char **argv)
