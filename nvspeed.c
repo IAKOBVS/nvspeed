@@ -238,9 +238,7 @@ nv_mainloop(void)
 #endif
 	unsigned int speed;
 	unsigned int temp;
-	for (;;) {
-		if (unlikely(nv_quit))
-			break;
+	for (; !nv_quit; ) {
 		unsigned int max = 0;
 		for (unsigned int i = 0; i < nv_device_count; ++i) {
 			nv_ret = nv_nvmlDeviceGetTemperature(nv[i].device, NVML_TEMPERATURE_GPU, &temp);
