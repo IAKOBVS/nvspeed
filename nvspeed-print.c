@@ -1,15 +1,15 @@
 #include "config.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
-#include <assert.h>
 #include <string.h>
 
 #define table_len sizeof(nv_table_temptospeed_med) 
 #define FAN_CURVE_MEDIUM nv_table_temptospeed_med
 #define FAN_CURVE_HIGH nv_table_temptospeed_high
 
-void
+static void
 print_table(const unsigned char *table)
 {
 	for (unsigned int i = 0; i < table_len; ++i) {
@@ -21,26 +21,23 @@ print_table(const unsigned char *table)
 		else
 			space = "";
 		printf("%s%dc ", space, i);
+		unsigned int speed = table[i];
 		for (unsigned int j = 0; j <= 100; ++j) {
-			const char *c;
-			if (j == (unsigned int)(table[i])) {
-				c = "x";
-				printf("%s ", c);
-				printf("%d%%", j);
-				if (j <= 9)
+			if (j == speed) {
+				printf("x %u%%", speed);
+				if (speed <= 9)
 					j += 3;
-				else if (j <= 99)
+				else if (speed <= 99)
 					j += 4;
 				else
 					j += 5;
 			} else {
-				c = "-";
-				printf("%s", c);
+				putchar('-');
 			}
 		}
 		putchar('\n');
 	}
-	printf("%s", "     ");
+	printf("     ");
 	for (unsigned int i = 0; i <= 100; ++i) {
 		if (i % 5 == 0) {
 			const char *space;
@@ -50,7 +47,7 @@ print_table(const unsigned char *table)
 				space = "  ";
 			else
 				space = " ";
-			printf("%d%s ", i, space);
+			printf("%u%s ", i, space);
 			if (i <= 9)
 				i += 3;
 			else if (i <= 99)
@@ -62,19 +59,30 @@ print_table(const unsigned char *table)
 	putchar('\n');
 }
 
-const unsigned char *find_curve()
+static const unsigned char *
+find_curve(void)
 {
 	int fd = open(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, O_RDONLY);
-	assert(fd != -1);
-	char curve[4096];
-	int read_sz = read(fd, curve, sizeof(curve));
-	assert(read_sz != -1);
-	assert(close(fd) != -1);
-	char *p = strchr(curve, '\n');
-	if (p) {
-		*p = '\0';
-		--read_sz;
+	if (fd == -1) {
+		fprintf(stderr, "nvspeed: can't open %s. Is the daemon running?\n",
+		        NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
 	}
+	char curve[256] = {0};
+	int read_sz = read(fd, curve, sizeof(curve) - 1);
+	if (read_sz < 0) {
+		fprintf(stderr, "nvspeed: error reading %s.\n",
+		        NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
+	}
+	if (close(fd) == -1) {
+		fprintf(stderr, "nvspeed: error closing %s.\n",
+		        NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		exit(EXIT_FAILURE);
+	}
+	char *p = strchr(curve, '\n');
+	if (p)
+		*p = '\0';
 	const unsigned char *table = FAN_CURVE_DEFAULT;
 	if (!strcmp(curve, "medium"))
 		table = FAN_CURVE_MEDIUM;

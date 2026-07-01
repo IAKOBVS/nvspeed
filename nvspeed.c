@@ -67,6 +67,7 @@ static volatile sig_atomic_t nv_quit;
 static void
 nv_mode_cleanup()
 {
+	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_TEMP);
 	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
 	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_LOCK);
 	(void)rmdir(NVSPEED_PATH);
@@ -80,7 +81,7 @@ nv_cleanup()
 			/* Restore fan control policy. */
 			for (unsigned int i = 0; i < nv_device_count; ++i)
 				for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
-					nv_ret = nvmlDeviceSetFanControlPolicy(nv[i].device, i, NVML_FAN_POLICY_TEMPERATURE_CONTINOUS_SW);
+					nv_ret = nvmlDeviceSetFanControlPolicy(nv[i].device, j, NVML_FAN_POLICY_TEMPERATURE_CONTINOUS_SW);
 					if (unlikely(nv_ret != NVML_SUCCESS))
 						DIE(nv_ret);
 				}
@@ -168,7 +169,7 @@ nv_step(unsigned int speed, unsigned int last_speed)
 int global_fd_temp = -1;
 unsigned int global_temp_old_sz = 0;
 
-static char *
+static ATTR_INLINE char *
 c_utoa_lt3_p(unsigned int num, char *buf)
 {
 	if (likely((unsigned int)(num - 10) < 90)) {
@@ -198,7 +199,7 @@ nv_temp_init(void)
 		return -1;
 	}
 	if (unlikely(chmod(NVSPEED_PATH "/" NVSPEED_FILE_TEMP, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1)) {
-		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
+		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_TEMP);
 		exit(EXIT_FAILURE);
 	}
 	return fd;
@@ -289,8 +290,11 @@ nv_puts_len(const char *filename, int oflag, const char *buf, unsigned int len)
 static void
 nv_mode_setup()
 {
-	if (mkdir(NVSPEED_PATH, 0777) != 0)
-		assert(errno == EEXIST);
+	if (mkdir(NVSPEED_PATH, 0777) != 0 && errno != EEXIST) {
+		fprintf(stderr, "nvspeed: can't mkdir %s: ", NVSPEED_PATH);
+		perror("");
+		exit(EXIT_FAILURE);
+	}
 	if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_LOCK, O_CREAT | O_EXCL, "", 0) == -1)) {
 		fprintf(stderr, "nvspeed: another instance is already running.\n");
 		exit(EXIT_FAILURE);
@@ -312,14 +316,13 @@ nv_mode_setup()
 	}
 }
 
-#define _(x) x
-
-static const char *usage = _("Usage: nvspeed [OPTIONS]...\n")
-                    _("Options:\n")
-                    _("  --medium\n")
-                    _("    Medium fan speed.\n")
-                    _("  --high\n")
-                    _("    High fan speed.\n");
+static const char *usage =
+    "Usage: nvspeed [OPTIONS]...\n"
+    "Options:\n"
+    "  --medium\n"
+    "    Medium fan speed.\n"
+    "  --high\n"
+    "    High fan speed.\n";
 
 int
 main(int argc, char **argv)
