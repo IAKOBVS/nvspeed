@@ -60,6 +60,7 @@ nv_mode_cleanup()
 static void
 nv_cleanup()
 {
+	nv_mode_cleanup();
 	if (nv_inited) {
 		if (nv) {
 			/* Restore fan control policy. */
@@ -67,12 +68,11 @@ nv_cleanup()
 				for (unsigned int j = 0; j < nv[i].num_fans; ++j) {
 					nv_ret = nvmlDeviceSetFanControlPolicy(nv[i].device, j, NVML_FAN_POLICY_TEMPERATURE_CONTINOUS_SW);
 					if (unlikely(nv_ret != NVML_SUCCESS))
-						DIE(nv_ret);
+						fprintf(stderr, "nvspeed: failed to restore fan policy for GPU%u fan%u: %s\n", i, j, nvmlErrorString(nv_ret));
 				}
 		}
 		nvmlShutdown();
 	}
-	nv_mode_cleanup();
 	free(nv);
 }
 
@@ -97,9 +97,11 @@ static void
 nv_sig_setup()
 {
 	if (unlikely(signal(SIGTERM, nv_sig_handler) == SIG_ERR))
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
 	if (unlikely(signal(SIGINT, nv_sig_handler) == SIG_ERR))
-		DIE(nv_ret);
+		DIE_GRACEFUL(nv_ret);
+	if (unlikely(signal(SIGHUP, nv_sig_handler) == SIG_ERR))
+		DIE_GRACEFUL(nv_ret);
 }
 
 static int
@@ -150,7 +152,7 @@ nv_step(unsigned int speed, unsigned int last_speed)
 	return (speed > low) ? speed : low;
 }
 
-#if PRINT_TEMP
+#if NVSPEED_PRINT_TEMP
 static int global_fd_temp = -1;
 #endif
 static unsigned int global_temp_old_sz = 0;
@@ -183,7 +185,7 @@ nv_temp_init(void)
 	}
 	if (unlikely(chmod(NVSPEED_PATH "/" NVSPEED_FILE_TEMP, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1)) {
 		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_TEMP);
-		exit(EXIT_FAILURE);
+		DIE_GRACEFUL(nv_ret);
 	}
 	return fd;
 }
@@ -217,7 +219,7 @@ nv_temp_write(int fd, unsigned int temp)
 static void
 nv_mainloop(void)
 {
-#if PRINT_TEMP
+#if NVSPEED_PRINT_TEMP
 	global_fd_temp = nv_temp_init();
 #endif
 	unsigned int last_max = (unsigned int)-1;
@@ -246,7 +248,7 @@ nv_mainloop(void)
 					DIE_GRACEFUL(nv_ret);
 			}
 		}
-#if PRINT_TEMP
+#if NVSPEED_PRINT_TEMP
 		/* Write to tmpfs, if temp has changed */
 		if (last_max != max || unlikely(last_max == (unsigned int)-1))
 			nv_temp_write(global_fd_temp, max);
@@ -287,17 +289,17 @@ nv_mode_setup()
 	if (nv_temptospeed == nv_table_temptospeed_med) {
 		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, O_CREAT | O_EXCL, S_LITERAL("medium\n")) == -1)) {
 			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
-			exit(EXIT_FAILURE);
+			nv_exit(nv_ret);
 		}
 	} else if (nv_temptospeed == nv_table_temptospeed_high) {
 		if (unlikely(nv_puts_len(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, O_CREAT | O_EXCL, S_LITERAL("high\n")) == -1)) {
 			fprintf(stderr, "nvspeed: can't write to %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
-			exit(EXIT_FAILURE);
+			nv_exit(nv_ret);
 		}
 	}
 	if (unlikely(chmod(NVSPEED_PATH "/" NVSPEED_FILE_CURVE, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) == -1)) {
 		fprintf(stderr, "nvspeed: can't chmod %s.\n", NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
-		exit(EXIT_FAILURE);
+		nv_exit(nv_ret);
 	}
 }
 

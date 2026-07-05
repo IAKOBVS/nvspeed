@@ -25,7 +25,7 @@
  * directly — useful when multiple processes need GPU temperature, since
  * NVML's internal global lock can be slower than file I/O.
  * Set to 0 (or comment out) to disable. */
-#	define PRINT_TEMP 1
+#	define NVSPEED_PRINT_TEMP 1
 
 /* Fan speed: 0-255
  * nv_table_temptospeed[temperature] = speed */
