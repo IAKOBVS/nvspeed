@@ -157,6 +157,7 @@ static int global_fd_temp = -1;
 #endif
 static unsigned int global_temp_old_sz = 0;
 
+/* Not nul-terminated */
 static ATTR_INLINE char *
 c_utoa_lt3_p(unsigned int num, char *buf)
 {
@@ -191,7 +192,7 @@ nv_temp_init(void)
 }
 
 static int
-nv_temp_write(int fd, unsigned int temp)
+nv_temp_write(int fd, unsigned int temp, unsigned int *old_temp_len)
 {
 	char buf[8];
 	unsigned int size = c_utoa_lt3_p(temp, buf) - buf;
@@ -204,9 +205,8 @@ nv_temp_write(int fd, unsigned int temp)
 	++size;
 	buf[size] = '\n';
 	++size;
-	buf[size] = '\0';
-	if (unlikely(size != global_temp_old_sz)) {
-		global_temp_old_sz = size;
+	if (unlikely(size != *old_temp_len)) {
+		*old_temp_len = size;
 		ftruncate(fd, size);
 	}
 	if (unlikely(pwrite(fd, buf, size, 0) < 0)) {
@@ -222,7 +222,7 @@ nv_mainloop(void)
 #if NVSPEED_PRINT_TEMP
 	global_fd_temp = nv_temp_init();
 #endif
-	unsigned int last_max = (unsigned int)-1;
+	unsigned int last_max = 0;
 	unsigned int speed;
 	unsigned int temp;
 	for (; !nv_quit; ) {
@@ -250,9 +250,10 @@ nv_mainloop(void)
 		}
 #if NVSPEED_PRINT_TEMP
 		/* Write to tmpfs, if temp has changed */
-		if (last_max != max || unlikely(last_max == (unsigned int)-1))
-			nv_temp_write(global_fd_temp, max);
-		last_max = max;
+		if (max != last_max) {
+			nv_temp_write(global_fd_temp, max, &global_temp_old_sz);
+			last_max = max;
+		}
 #endif
 		nanosleep(&nv_ts, NULL);
 	}
