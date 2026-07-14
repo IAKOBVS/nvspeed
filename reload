@@ -4,4 +4,4 @@ LOG_FILE=/tmp/nvspeed.log
 sudo killall "$BIN"
 make
 sudo make install
-nohup sudo nvspeed >/dev/null 2>"$LOG_FILE" &
+nohup sudo nvspeed >"$LOG_FILE" 2>&1 &
