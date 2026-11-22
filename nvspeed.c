@@ -49,7 +49,7 @@ static nvmlReturn_t nv_ret = NVML_SUCCESS;
 static volatile sig_atomic_t nv_quit;
 
 static void
-nv_mode_cleanup()
+nv_mode_cleanup(void)
 {
 	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_TEMP);
 	(void)unlink(NVSPEED_PATH "/" NVSPEED_FILE_CURVE);
@@ -58,7 +58,7 @@ nv_mode_cleanup()
 }
 
 static void
-nv_cleanup()
+nv_cleanup(void)
 {
 	nv_mode_cleanup();
 	if (nv_inited) {
@@ -94,7 +94,7 @@ nv_sig_handler(int signum)
 }
 
 static void
-nv_sig_setup()
+nv_sig_setup(void)
 {
 	if (unlikely(signal(SIGTERM, nv_sig_handler) == SIG_ERR))
 		DIE_GRACEFUL(nv_ret);
@@ -105,7 +105,7 @@ nv_sig_setup()
 }
 
 static int
-nv_init()
+nv_init(void)
 {
 	nv_sig_setup();
 	nv_ret = nvmlInit();
@@ -197,14 +197,8 @@ nv_temp_write(int fd, unsigned int temp, unsigned int *old_temp_len)
 	char buf[8];
 	unsigned int size = c_utoa_lt3_p(temp, buf) - buf;
 	/* Print milidegrees, like sysfs. */
-	buf[size] = '0';
-	++size;
-	buf[size] = '0';
-	++size;
-	buf[size] = '0';
-	++size;
-	buf[size] = '\n';
-	++size;
+	memcpy(buf + size, "000\n", 4);
+	size += 4;
 	if (unlikely(size != *old_temp_len)) {
 		*old_temp_len = size;
 		ftruncate(fd, size);
@@ -276,7 +270,7 @@ nv_puts_len(const char *filename, int oflag, const char *buf, unsigned int len)
 }
 
 static void
-nv_mode_setup()
+nv_mode_setup(void)
 {
 	if (mkdir(NVSPEED_PATH, 0777) != 0 && errno != EEXIST) {
 		fprintf(stderr, "nvspeed: can't mkdir %s: ", NVSPEED_PATH);
